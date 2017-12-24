@@ -9,8 +9,7 @@ def log_loss_func(weights,pred_list,y_test):
     ''' scipy minimize will pass the weights as a numpy array '''
     final_prediction = 0
     for weight, pred in zip(weights, pred_list):
-            print(pred.shape)
-            final_prediction += weight*pred
+        final_prediction += weight*pred
 
     return log_loss(y_test, final_prediction)
 
