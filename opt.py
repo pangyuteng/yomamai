@@ -40,6 +40,9 @@ def opt_pred(pred_list,weights):
     pred_arr = np.array(pred_list).squeeze()
     print(pred_arr.shape,weights.shape)
     pred = pred_arr.T*weights
-    print(pred.shape)
+
+    if len(pred.shape) ==1:
+        return pred
+        
     pred = np.sum(pred,axis=1)
     return pred
