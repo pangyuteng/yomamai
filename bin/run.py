@@ -22,7 +22,7 @@ model_list = [
     ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     ('aec',models.aec.AecModel,dict(istrain=False)),
     ('xg',models.xg.XgModel,dict(istrain=False)),
-    ('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=False)),
+    ('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=False)),# depends on model from AecAdvModel
 ]
 
 
@@ -55,7 +55,7 @@ def main():
         X_val=X_val[:-1:shrink_train,:]
         y_val=y_val[:-1:shrink_train]
 
-    #pretrain_params = dict()
+    ##pretrain_params = dict()
 
     # fit models
     for name,clsf,params in model_list:
@@ -64,8 +64,8 @@ def main():
             continue
 
         inst = clsf()
-        #if hasattr(inst,'pretrain'):
-        #    inst.pretrain(**pretrain_params)
+        ##if hasattr(inst,'pretrain'):
+        ##    inst.pretrain(**pretrain_params)
         inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val,X_test=X_test)
 
     # predict train
@@ -73,7 +73,7 @@ def main():
     for name,clsf,params in model_list:
         inst = clsf()
         y_pred,logloss = inst.predict(X_train,y_true=y_train)
-        print(name,logloss)
+        print('logloss',name,logloss)
         y_pred_list.append(y_pred)
         print(y_pred.shape)
 

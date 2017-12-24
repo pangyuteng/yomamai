@@ -10,14 +10,13 @@ def log_loss_func(weights,pred_list,y_test):
     final_prediction = 0
     for weight, pred in zip(weights, pred_list):
         final_prediction += weight*pred
-
     return log_loss(y_test, final_prediction)
 
 def opt_weights(pred_list,y_test):
 
     #the algorithms need a starting value, right not we chose 0.5 for all weights
     #its better to choose many random starting points and run minimize a few times
-    starting_values = [0.5]*len(pred_list)
+    starting_values = [1.0/len(pred_list)]*len(pred_list)
 
     #adding constraints  and a different solver as suggested by user 16universe
     #https://kaggle2.blob.core.windows.net/forum-message-attachments/75655/2393/otto%20model%20weights.pdf?sv=2012-02-12&se=2015-05-03T21%3A22%3A17Z&sr=b&sp=r&sig=rkeA7EJC%2BiQ%2FJ%2BcMpcA4lYQLFh6ubNqs2XAkGtFsAv0%3D
