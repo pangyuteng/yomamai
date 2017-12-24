@@ -300,11 +300,9 @@ class AecAdvModel(object):
 
         eX = self.encoder.predict(X)
         y_pred = self.res.predict(eX)
-        print(y_pred.shape)
 
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)
-            print('logloss %r' % logloss)
 
         return y_pred, logloss
