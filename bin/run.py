@@ -20,10 +20,10 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 import opt
 
 model_list = [
-    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
+    ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     ('aec',models.aec.AecModel,dict(istrain=False)),
-    #('xg',models.xg.XgModel,dict(istrain=False)),
-    ('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=False)),# depends on model from AecAdvModel
+    ('xg',models.xg.XgModel,dict(istrain=False)),
+    #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=False)),# depends on model from AecAdvModel
 ]
 
 
@@ -105,7 +105,7 @@ def main():
 
     # optimize prediction
     opt_pred = opt.opt_pred(y_pred_list,opt_weights)
-    print('final logloss',name,opt.log_loss_func(opt_weights,[opt_pred[val_inds]],y_test[val_inds]))
+    print('final logloss',opt.log_loss_func([1.],[opt_pred[val_inds]],y_test[val_inds]))
     # write prediction
     write_to_csv(ids,opt_pred,"predictions.csv")
 
