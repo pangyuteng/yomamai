@@ -6,8 +6,8 @@ from keras.utils import np_utils
 
 from cfg import downpath
 
-data_folders = [os.path.join(downpath,x) for x in os.listdir(downpath) \
-        if x.startswith('numerai_dataset') and not x.endswith('.zip')]
+data_folders = sorted([os.path.join(downpath,x) for x in os.listdir(downpath) \
+        if x.startswith('numerai_dataset') and not x.endswith('.zip')])
 
 data_files = [{
     'trainpath':os.path.join(x,'numerai_training_data.csv'),
@@ -56,10 +56,21 @@ def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1):
     Y_train = np.concatenate(Y_train,axis=0).astype('float')
     Y_test = np.concatenate(Y_test,axis=0).astype('float')
     
-    print(X_train.shape,X_test.shape,Y_train.shape,Y_test.shape)
-    return X_train,X_test,Y_train,Y_test
+    print(X_train.shape,Y_train.shape,X_test.shape,Y_test.shape)
+    return X_train,Y_train,X_test,Y_test
     #return X_train[:1000,:],X_test[:100,:],Y_train[:1000,:],Y_test[:100,:]
     
+def write_to_csv(ids,opt_pred,fname):
+    # output optimized prediction of test set
+    results_df = pd.DataFrame(data={'probability':opt_pred})
+    joined = pd.DataFrame(ids).join(results_df)
+
+    print("Writing predictions to predictions.csv")
+    # Save the predictions out to a CSV file
+    joined.to_csv(fname, index=False)
+
+
 if __name__ == '__main__':
-   X_train,X_test,Y_train,Y_test = get_data_era_balanced(data_files[-1]['trainpath'])
-   X_train,X_test,Y_train,Y_test = get_data_era_balanced(data_files[-1]['testpath'])
+   TR_X_train,TR_Y_train,TTR_X_test,R_Y_test = get_data_era_balanced(data_files[-1]['trainpath'])
+   TE_X_train,TE_Y_train,TE_X_test,TE_Y_test = get_data_era_balanced(data_files[-1]['testpath'])
+   

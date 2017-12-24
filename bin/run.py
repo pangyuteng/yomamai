@@ -1,27 +1,114 @@
+import traceback
 import sys,os
+import socket
+
+if socket.gethostname() == 'gtx':
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
+import numpy as np
+np.random.seed(69)
 
 root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(root_path)
+import pandas as pd
 
 from cfg import cfg
 from numerapi.numerapi import NumerAPI
+import models
+from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
+import opt
 
-import data_utils
+model_list = [
+    ('aec',models.aec.AecModel),
+    ('xg',models.xg.XgModel),
+]
+
 
 def main():
 
-	api_inst=NumerAPI(**cfg['api'])
-	# download if necessary
-	#X_train,y_train,e_train,X_test,y_test,e_test
+    # api instance
+    api_inst=NumerAPI(**cfg['api'])
+    try:
+        sub_status = api_inst.submission_status()
+    except:
+        traceback.print_exc()
+        sub_status = None
+    
+    # download if necessary
+    api_inst.download_current_dataset(dest_path=cfg['downpath'],unzip=True)
+    print(sub_status)
+    print(data_files[-1])
 
-	# fit models
+    shrink_train = None
+    shrink_test = None
+    print('====================')
+    # get data 
+    X_train,y_train,X_val,y_val = get_data_era_balanced(data_files[-1]['trainpath'])
 
-	# predict train and test set 
+    # for testing
+    if isinstance(shrink_train,int):
+        X_train=X_train[:shrink_train,:]
+        y_train=y_train[:shrink_train]
+        X_val=X_val[:shrink_train,:]
+        y_val=y_val[:shrink_train]
 
-	# optimize with train set
+    #pretrain_params = dict()
 
-	# putput optimized prediction of test set
-	
+    # fit models
+    for name,clsf in model_list:
+        inst = clsf()
+        #if hasattr(inst,'pretrain'):
+        #    inst.pretrain(**pretrain_params)
+        inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val)
+
+    # predict train
+    y_pred_list = []
+    for name,clsf in model_list:
+        inst = clsf()
+        y_pred,logloss = inst.predict(X_train,y_true=y_train)
+        print(name,logloss)
+        y_pred_list.append(y_pred)
+        print(y_pred.shape)
+
+    # optimize with train set
+    opt_weights = opt.opt_weights(y_pred_list,y_train)
+    np.save('opt_weights.pkl',opt_weights)
+    
+    # prep for testing
+    del X_train,y_train,X_val,y_val    
+    X_test,y_test,ids,_eras=get_data(data_files[-1]['testpath'])
+    print(data_files[-1])
+
+    # for testing
+    if isinstance(shrink_test,int):
+        X_test = X_test[:shrink_test,:]
+        y_test = y_test[:shrink_test]
+        ids = ids[:shrink_test]
+        _eras = _eras[:shrink_test]
+
+    # predict test
+    y_pred_list = []
+    for name,clsf in model_list:
+        inst = clsf()
+        y_pred,_ = inst.predict(X_test)
+        print(name,)
+        y_pred_list.append(y_pred)
+
+    # optimize prediction
+    opt_pred = opt.opt_pred(y_pred_list,opt_weights)
+    print(opt_pred.shape)
+
+    # write prediction
+    write_to_csv(ids,opt_pred,"predictions.csv")
+
+    # upload
+    api_inst.upload_predictions("predictions.csv")
+    try:
+        sub_status = api_inst.submission_status()
+    except:
+        traceback.print_exc()
+        sub_status = None
+    print('!!',sub_status)
 
 if __name__ == '__main__':
-	main()
+    main()
