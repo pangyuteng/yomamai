@@ -7,5 +7,5 @@ https://github.com/jsilter/parametric_tsne
 https://www.kaggle.com/timevans/rf-xgboost-keras
 https://www.kaggle.com/hsperr/finding-ensamble-weights
 CUDA_VISIBLE_DEVICES='1' 
-
+CUDA_VISIBLE_DEVICES='1' jupyter notebook
 '''

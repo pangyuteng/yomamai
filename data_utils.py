@@ -29,13 +29,14 @@ def get_data(data_file_path):
     Y = df["target"]
     ids = df["id"]
     eras = df["era"]        
+    datatypes = df["data_type"]
 
-    return X, Y, ids, eras
+    return X, Y, ids, eras, datatypes
 
     
 def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1):
     
-    X,Y,ids,eras = get_data(data_file_path)
+    X,Y,ids,eras,datatypes = get_data(data_file_path)
     print(type(X),type(Y),type(ids),type(eras))
 
     X_train, X_test, Y_train, Y_test = ([],[],[],[])
@@ -64,8 +65,6 @@ def write_to_csv(ids,opt_pred,fname):
     # output optimized prediction of test set
     results_df = pd.DataFrame(data={'probability':opt_pred})
     joined = pd.DataFrame(ids).join(results_df)
-
-    print("Writing predictions to predictions.csv")
     # Save the predictions out to a CSV file
     joined.to_csv(fname, index=False)
 

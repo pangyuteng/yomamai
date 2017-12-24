@@ -4,6 +4,7 @@ import socket
 
 if socket.gethostname() == 'gtx':
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['OMP_NUM_THREADS'] = '1'
 
 import numpy as np
 np.random.seed(69)
@@ -19,9 +20,9 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 import opt
 
 model_list = [
-    ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
+    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     ('aec',models.aec.AecModel,dict(istrain=False)),
-    ('xg',models.xg.XgModel,dict(istrain=False)),
+    #('xg',models.xg.XgModel,dict(istrain=False)),
     ('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=False)),# depends on model from AecAdvModel
 ]
 
@@ -46,7 +47,7 @@ def main():
     print('====================')
     # get data 
     X_train,y_train,X_val,y_val = get_data_era_balanced(data_files[-1]['trainpath'])
-    X_test,y_test,_,_=get_data(data_files[-1]['testpath'])
+    X_test,y_test,_,_,_=get_data(data_files[-1]['testpath'])
 
     # for testing
     if isinstance(shrink_train,int):
@@ -82,8 +83,8 @@ def main():
     np.save('opt_weights.pkl',opt_weights)
     
     # prep for testing
-    del X_train,y_train,X_val,y_val    
-    X_test,y_test,ids,_eras=get_data(data_files[-1]['testpath'])
+    del X_train,y_train,X_val,y_val  # save some memory
+    X_test,y_test,ids,_eras,_datatypes=get_data(data_files[-1]['testpath'])
     print(data_files[-1])
 
     # for testing
@@ -94,17 +95,17 @@ def main():
         _eras = _eras[:-1:shrink_test]
 
     # predict test
+    val_inds = np.array(np.where(_datatypes=='validation')).squeeze()
     y_pred_list = []
     for name,clsf,params in model_list:
         inst = clsf()
         y_pred,_ = inst.predict(X_test)
-        print(name,)
         y_pred_list.append(y_pred)
+        print('logloss',name,opt.log_loss_func([1.],[y_pred[val_inds]],y_test[val_inds]))
 
     # optimize prediction
     opt_pred = opt.opt_pred(y_pred_list,opt_weights)
-    print(opt_pred.shape)
-
+    print('final logloss',name,opt.log_loss_func(opt_weights,[opt_pred[val_inds]],y_test[val_inds]))
     # write prediction
     write_to_csv(ids,opt_pred,"predictions.csv")
 
@@ -115,7 +116,7 @@ def main():
     except:
         traceback.print_exc()
         sub_status = None
-
+    
 
 if __name__ == '__main__':
     main()
