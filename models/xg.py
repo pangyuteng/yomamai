@@ -45,7 +45,7 @@ class XgModel(object):
         dtrain = xgb.DMatrix(X_train, label=y_train)
         self.model = xgb.train(self.params, dtrain, self.num_round)
         self.model.save_model(self.xgb_model_fname)
-        self.is_trained = True
+        self.load()
 
     def predict(self,X,y_true=None):
         if self.is_trained is False:

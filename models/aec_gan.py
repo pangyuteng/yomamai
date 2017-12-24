@@ -152,65 +152,85 @@ def get_gan(generator, discriminator,input_shape=50,):
     model = Model(input=I,output=D)
     return model
 
-def chunkify(x, y, n):
+def chunkify(x, n):
     """Yield successive n-sized chunks from l."""
-    for i in range(0, len(y), n):
-        yield x[i:i + n,:], y[i:i + n]
+    for i in range(0, x.shape[0], n):
+        yield x[i:i + n,:]
 
+FDNAME = 'aec_gan_file'
 class AecAdvModel(object):
     def __init__(self,):
         self.is_trained = False
-        
-        self.gan_weight_path = lambda x: os.path.join(THIS_DIR,'aec_gan_file','gan{:03d}.hdf5'.format(x)) 
-        self.discr_weight_path = lambda x: os.path.join(THIS_DIR,'aec_gan_file','discr{:03d}.hdf5'.format(x))
-        self.decoder_weight_path = lambda x: os.path.join(THIS_DIR,'aec_gan_file','decoder{:03d}.hdf5'.format(x))
-        self.history_path = os.path.join(THIS_DIR,'aec_gan_file','history.yml')
+        self.res_csv = os.path.join(THIS_DIR,FDNAME,'res.csv')
+        self.gan_weight_path = lambda x: os.path.join(THIS_DIR,FDNAME,'gan{:03d}.hdf5'.format(x)) 
+        self.discr_weight_path = lambda x: os.path.join(THIS_DIR,FDNAME,'discr{:03d}.hdf5'.format(x))
+        self.decoder_weight_path = lambda x: os.path.join(THIS_DIR,FDNAME,'decoder{:03d}.hdf5'.format(x))
+        self.history_path = os.path.join(THIS_DIR,FDNAME,'history.yml')
         self.encoder, self.decoder = get_aec()
         self.res = get_res()
         self.discr = get_discriminator()
         self.gan = get_gan(self.decoder,self.discr)
 
-    def load(self):
-        return
+    def _load_aec(self):
+        with open(self.history_path, "r") as f:
+            history = yaml.load(f.read())
+        epoch = history[np.argmin([x['decoder_val_loss'] for x in history])]['epoch']
+        self.decoder.load_weights(self.decoder_weight_path(epoch))
+        self.encoder.set_weights(self.decoder.get_weights()[:-1])
+
+    def _load_res(self):
         res_results=pd.read_csv(self.res_csv)
         res_epoch=np.argmin(res_results['val_loss'])+1
-        res_weights = glob.glob(os.path.join(THIS_DIR,r'aec_file/weightsRES.'+'{:03d}'.format(res_epoch)+'*'))
+        res_weights = glob.glob(os.path.join(THIS_DIR,FDNAME,'weightsRES.'+'{:03d}'.format(res_epoch)+'*'))
         self.res_weight_file = res_weights[0]
         self.res.load_weights(self.res_weight_file)
 
+    def load(self):
+        self._load_aec()
+        self._load_res()
         self.is_trained = True
 
-    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None):
+    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None):
         if X_validation is None or y_validation is None:
             raise IOError()
-        info_list = []
-        with open(self.history_path, "w") as f:
-            f.write(yaml.dump(info_list))
+            
+        decoder_X_train = X_train
+        if X_test is not None:
+            decoder_X_train = np.concatenate([X_train,X_test],axis=0).astype('float')
+            
 
         loss = 'mse' #<-- mse likely sucks
-        enc_opt = Adam(lr=0.0005)
-        self.encoder.compile(loss=loss, optimizer=enc_opt)
+        
+        #enc_opt = Adam(lr=0.0005)
+        #self.encoder.compile(loss=loss, optimizer=enc_opt)
+
         dec_opt = Adam(lr=0.0005)
         self.decoder.compile(loss=loss, optimizer=dec_opt)
 
         stacked_opt = Adam(lr=0.0005)
         self.gan.compile(loss='binary_crossentropy', optimizer=stacked_opt)
         
-        self.discr.trainable = True
         descr_opt = Adam(lr=0.0001)
         self.discr.compile(loss='binary_crossentropy', optimizer=descr_opt)
+        self.discr.trainable = True
+        
+        info_list = []
+        with open(self.history_path, "w") as f:
+            f.write(yaml.dump(info_list))
 
-        epoch_num = 200
+        epoch_num = 20
         batch_size = 64
+        
 
         for epoch in range(epoch_num):
             d_loss_list = []
             g_loss_list = []
             s_loss_list = []
-
-            for bX_train,by_train in chunkify(X_train,y_train,batch_size):
-
-
+            #pbar = tqdm(total=int(X_train.shape[0]/float(batch_size)))
+            #c=0
+            for bX_train in chunkify(decoder_X_train,batch_size):
+                #pbar.update(c)
+                #c+=1
                 bdecOut = self.decoder.predict(bX_train, verbose=0)
 
                 X = np.concatenate((bdecOut,bX_train),axis=0).astype('float')
@@ -230,12 +250,12 @@ class AecAdvModel(object):
 
                 g_loss = self.decoder.train_on_batch(bX_train,bX_train)
                 s_loss = self.gan.train_on_batch(bX_train,one_y)
-
+                #print(g_loss,d_loss)
                 self.discr.trainable = True
 
                 g_loss_list.append(g_loss)
                 s_loss_list.append(s_loss)
-                
+            #pbar.close()    
             decoder_val_loss = self.decoder.evaluate(X_validation, X_validation, batch_size=batch_size)
             print(epoch,decoder_val_loss,g_loss,s_loss)
             info_list.append({
@@ -246,12 +266,33 @@ class AecAdvModel(object):
                 'decoder_val_loss': float(decoder_val_loss),
             })
             self.decoder.save_weights(self.decoder_weight_path(epoch), True)
-            self.gan.save_weights(self.gan_weight_path(epoch), True)
             self.discr.save_weights(self.discr_weight_path(epoch), True)
             with open(self.history_path, "w") as f:
                 f.write(yaml.dump(info_list))
+        
+        
+        self._load_aec()
+        lr=0.0001
+        opt = Adam(lr=lr) #< faster than SGD
+        self.res.compile(loss='binary_crossentropy', optimizer=opt)
 
-        self.is_trained = True
+        res_callbacks = [
+            PlotLoss(self.res_csv),
+            callbacks.EarlyStopping(monitor='val_loss', patience=5),
+            callbacks.ModelCheckpoint(os.path.join(
+                THIS_DIR,FDNAME,'weightsRES.{epoch:03d}.hdf5')),
+        ]
+
+        nb_epoch= 200
+        batch_size = 64
+
+        proba = self.encoder.predict(X_train)
+        probaVal = self.encoder.predict(X_validation)
+        history = self.res.fit(proba, y_train,shuffle=True,
+            batch_size=batch_size, epochs=nb_epoch,
+            verbose=1, validation_data=(probaVal,y_validation), callbacks=res_callbacks)
+
+        self.load()
 
     def predict(self,X,y_true=None):
         if self.is_trained is False:

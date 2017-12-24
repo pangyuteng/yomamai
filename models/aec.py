@@ -163,7 +163,7 @@ class AecModel(object):
         self._load_res()
         self.is_trained = True
 
-    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None):
+    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None):
         if X_validation is None or y_validation is None:
             raise IOError()
 
@@ -179,12 +179,16 @@ class AecModel(object):
             PlotLoss(self.aec_csv),
             callbacks.EarlyStopping(monitor='val_loss', patience=5),
             callbacks.ModelCheckpoint(os.path.join(
-                THIS_DIR,r'aec_file/weightsAEC.{epoch:03d}-{val_loss:.6f}.hdf5')),
+                THIS_DIR,r'aec_file/weightsAEC.{epoch:03d}.hdf5')),
         ]
         
+        decoder_X_train = X_train
+        if X_test is not None:
+            decoder_X_train = np.concatenate([X_train,X_test],axis=0).astype('float')
+            
         nb_epoch= 200
         batch_size =64
-        history = self.decoder.fit(X_train,X_train,shuffle=True,
+        history = self.decoder.fit(decoder_X_train,decoder_X_train,shuffle=True,
             batch_size=batch_size,epochs=nb_epoch,
             verbose=1,callbacks=aec_callbacks,validation_data=(X_validation,X_validation),)
 
@@ -198,7 +202,7 @@ class AecModel(object):
             PlotLoss(self.res_csv),
             callbacks.EarlyStopping(monitor='val_loss', patience=5),
             callbacks.ModelCheckpoint(os.path.join(
-                THIS_DIR,r'aec_file/weightsRES.{epoch:03d}-{val_loss:.4f}.hdf5')),
+                THIS_DIR,r'aec_file/weightsRES.{epoch:03d}.hdf5')),
         ]
 
         nb_epoch= 200
@@ -210,8 +214,7 @@ class AecModel(object):
             batch_size=batch_size, epochs=nb_epoch,
             verbose=1, validation_data=(probaVal,y_validation), callbacks=res_callbacks)
 
-
-        self.is_trained = True
+        self.load()
 
     def predict(self,X,y_true=None):
         if self.is_trained is False:

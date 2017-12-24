@@ -20,8 +20,8 @@ import opt
 
 model_list = [
     ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
-    #('aec',models.aec.AecModel,dict(istrain=False)),
-    #('xg',models.xg.XgModel,dict(istrain=True)),
+    ('aec',models.aec.AecModel,dict(istrain=True)),
+    ('xg',models.xg.XgModel,dict(istrain=True)),
 ]
 
 
@@ -45,13 +45,14 @@ def main():
     print('====================')
     # get data 
     X_train,y_train,X_val,y_val = get_data_era_balanced(data_files[-1]['trainpath'])
+    X_test,y_test,_,_=get_data(data_files[-1]['testpath'])
 
     # for testing
     if isinstance(shrink_train,int):
-        X_train=X_train[:shrink_train,:]
-        y_train=y_train[:shrink_train]
-        X_val=X_val[:shrink_train,:]
-        y_val=y_val[:shrink_train]
+        X_train=X_train[:-1:shrink_train,:]
+        y_train=y_train[:-1:shrink_train]
+        X_val=X_val[:-1:shrink_train,:]
+        y_val=y_val[:-1:shrink_train]
 
     #pretrain_params = dict()
 
@@ -64,7 +65,7 @@ def main():
         inst = clsf()
         #if hasattr(inst,'pretrain'):
         #    inst.pretrain(**pretrain_params)
-        inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val)
+        inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val,X_test=X_test)
 
     # predict train
     y_pred_list = []
@@ -86,10 +87,10 @@ def main():
 
     # for testing
     if isinstance(shrink_test,int):
-        X_test = X_test[:shrink_test,:]
-        y_test = y_test[:shrink_test]
-        ids = ids[:shrink_test]
-        _eras = _eras[:shrink_test]
+        X_test = X_test[:-1:shrink_test,:]
+        y_test = y_test[:-1:shrink_test]
+        ids = ids[:-1:shrink_test]
+        _eras = _eras[:-1:shrink_test]
 
     # predict test
     y_pred_list = []
@@ -113,7 +114,7 @@ def main():
     except:
         traceback.print_exc()
         sub_status = None
-    print('!!',sub_status)
+
 
 if __name__ == '__main__':
     main()
