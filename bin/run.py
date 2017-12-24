@@ -19,8 +19,9 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 import opt
 
 model_list = [
-    ('aec',models.aec.AecModel),
-    ('xg',models.xg.XgModel),
+    ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
+    #('aec',models.aec.AecModel,dict(istrain=False)),
+    #('xg',models.xg.XgModel,dict(istrain=True)),
 ]
 
 
@@ -55,7 +56,11 @@ def main():
     #pretrain_params = dict()
 
     # fit models
-    for name,clsf in model_list:
+    for name,clsf,params in model_list:
+
+        if params['istrain'] is False:
+            continue
+
         inst = clsf()
         #if hasattr(inst,'pretrain'):
         #    inst.pretrain(**pretrain_params)
@@ -63,7 +68,7 @@ def main():
 
     # predict train
     y_pred_list = []
-    for name,clsf in model_list:
+    for name,clsf,params in model_list:
         inst = clsf()
         y_pred,logloss = inst.predict(X_train,y_true=y_train)
         print(name,logloss)
@@ -88,7 +93,7 @@ def main():
 
     # predict test
     y_pred_list = []
-    for name,clsf in model_list:
+    for name,clsf,params in model_list:
         inst = clsf()
         y_pred,_ = inst.predict(X_test)
         print(name,)
