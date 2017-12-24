@@ -41,7 +41,7 @@ def opt_weights(pred_list,y_test):
         #https://kaggle2.blob.core.windows.net/forum-message-attachments/75655/2393/otto%20model%20weights.pdf?sv=2012-02-12&se=2015-05-03T21%3A22%3A17Z&sr=b&sp=r&sig=rkeA7EJC%2BiQ%2FJ%2BcMpcA4lYQLFh6ubNqs2XAkGtFsAv0%3D
         cons = ({'type':'eq','fun':lambda w: 1-sum(w)})
         #our weights are bound between 0 and 1
-        bounds = [(0,1)]*len(pred_list)
+        bounds = [(0.05,0.6)]*len(pred_list)
         try:
             res = minimize(log_loss_func, starting_values, args=(pred_list,y_test),
                 method='SLSQP',bounds=bounds, constraints=cons)

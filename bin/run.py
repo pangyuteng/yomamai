@@ -106,6 +106,7 @@ def main():
     # optimize prediction
     opt_pred = opt.opt_pred(y_pred_list,opt_weights)
     print('final logloss',opt.log_loss_func([1.],[opt_pred[val_inds]],y_test[val_inds]))
+
     # write prediction
     write_to_csv(ids,opt_pred,"predictions.csv")
 

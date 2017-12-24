@@ -149,7 +149,7 @@ def get_gan(generator, discriminator,input_shape=50,):
     G = generator(I)
     D = discriminator(G)
     D.trainable = False
-    model = Model(input=I,output=D)
+    model = Model(inputs=I,outputs=D)
     return model
 
 def chunkify(x, n):
