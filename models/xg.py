@@ -15,21 +15,8 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class XgModel(object):
     def __init__(self,):
-        self.params = dict(
-
-             n_estimators=182,
-             subsample=0.0,
-             gamma=0.75,
-             min_child_weight=5,
-             eta=0.025,             
-             colsample_bytree=0.75,
-             num_class=2,
-             objective='multi:softprob',
-             max_depth=6,
-             scale_pos_weight=1,
-             seed=27,
-             nthread=6,
-         )
+        self.params = {'max_depth': 11, 'colsample_bytree': 0.5, 'subsample': 0.9500000000000001, 'objective': 'multi:softprob', 'eta': 0.1, 'nthread': 2, 'eval_metric': 'mlogloss', 'silent': 1, 'num_class': 2, 'n_estimators': 171.0, 'gamma': 0.55, 'min_child_weight': 3.0}
+        self.params.update(dict(seed=69))
         self.num_round =5
         self.is_trained = False
         self.model = xgb.Booster(self.params,)#{'nthread':6,}) #
