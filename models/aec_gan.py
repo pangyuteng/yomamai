@@ -3,7 +3,6 @@ from sklearn import metrics
 import yaml
 
 import sys,os
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 from tqdm import tqdm
 import os,sys
@@ -34,9 +33,6 @@ from keras.layers import PReLU
 
 import glob
 import argparse
-
-
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class PlotLoss(callbacks.History):
@@ -158,14 +154,18 @@ def chunkify(x, n):
         yield x[i:i + n,:]
 
 FDNAME = 'aec_gan_file'
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+
 class AecAdvModel(object):
-    def __init__(self,):
+    def __init__(self,this_dir=THIS_DIR,fdname=FDNAME):
         self.is_trained = False
-        self.res_csv = os.path.join(THIS_DIR,FDNAME,'res.csv')
-        self.gan_weight_path = lambda x: os.path.join(THIS_DIR,FDNAME,'gan{:03d}.hdf5'.format(x)) 
-        self.discr_weight_path = lambda x: os.path.join(THIS_DIR,FDNAME,'discr{:03d}.hdf5'.format(x))
-        self.decoder_weight_path = lambda x: os.path.join(THIS_DIR,FDNAME,'decoder{:03d}.hdf5'.format(x))
-        self.history_path = os.path.join(THIS_DIR,FDNAME,'history.yml')
+        self.this_dir = this_dir
+        self.fdname = fdname
+        self.res_csv = os.path.join(self.this_dir,self.fdname,'res.csv')
+        self.gan_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'gan{:03d}.hdf5'.format(x)) 
+        self.discr_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'discr{:03d}.hdf5'.format(x))
+        self.decoder_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'decoder{:03d}.hdf5'.format(x))
+        self.history_path = os.path.join(self.this_dir,self.fdname,'history.yml')
         self.encoder, self.decoder = get_aec()
         self.res = get_res()
         self.discr = get_discriminator()
@@ -181,7 +181,7 @@ class AecAdvModel(object):
     def _load_res(self):
         res_results=pd.read_csv(self.res_csv)
         res_epoch=np.argmin(res_results['val_loss'])+1
-        res_weights = glob.glob(os.path.join(THIS_DIR,FDNAME,'weightsRES.'+'{:03d}'.format(res_epoch)+'*'))
+        res_weights = glob.glob(os.path.join(self.this_dir,self.fdname,'weightsRES.'+'{:03d}'.format(res_epoch)+'*'))
         self.res_weight_file = res_weights[0]
         self.res.load_weights(self.res_weight_file)
 
@@ -280,7 +280,7 @@ class AecAdvModel(object):
             PlotLoss(self.res_csv),
             callbacks.EarlyStopping(monitor='val_loss', patience=5),
             callbacks.ModelCheckpoint(os.path.join(
-                THIS_DIR,FDNAME,'weightsRES.{epoch:03d}.hdf5')),
+                self.this_dir,self.fdname,'weightsRES.{epoch:03d}.hdf5')),
         ]
 
         nb_epoch= 200

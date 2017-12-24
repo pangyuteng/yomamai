@@ -20,9 +20,9 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 import opt
 
 model_list = [
-    ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
+    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     ('aec',models.aec.AecModel,dict(istrain=False)),
-    ('xg',models.xg.XgModel,dict(istrain=False)),
+    ('xg',models.xg.XgModel,dict(istrain=True)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=False)),# depends on model from AecAdvModel
 ]
 
