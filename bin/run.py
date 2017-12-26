@@ -20,13 +20,18 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 import opt
 
 model_list = [
-    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
-    ('aec',models.aec.AecModel,dict(istrain=False)),
-    ('xg',models.xg.XgModel,dict(istrain=True)),
-    #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=False)),# depends on model from AecAdvModel
+    #trained#('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
+    #trained#('aec',models.aec.AecModel,dict(istrain=False)),
+    #no need retrain#('xg',models.xg.XgModel,dict(istrain=False)),
+    #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
+    #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
+    ('krauss',models.krauss.KraussModel,dict(istrain=True)),
 ]
-
-
+'''
+    #worse than random# #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),
+    ### try to categorize training set to weight more on those alike test set.
+    
+'''
 def main():
 
     # api instance
@@ -56,8 +61,13 @@ def main():
         X_val=X_val[:-1:shrink_train,:]
         y_val=y_val[:-1:shrink_train]
 
-    ##pretrain_params = dict()
-
+    # determine sample weights
+    #ddiscr=models.datatype_discr.DDiscrModel()
+    #ddiscr.fit(X_train=X_train,y_train=y_train,X_validation=X_val,y_validation=y_val,X_test=X_test)
+    #ddiscr.load()
+    #train_sample_weight, _ = ddiscr.predict(X_train)
+    train_sample_weight = None
+    
     # fit models
     for name,clsf,params in model_list:
 
@@ -67,7 +77,7 @@ def main():
         inst = clsf()
         ##if hasattr(inst,'pretrain'):
         ##    inst.pretrain(**pretrain_params)
-        inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val,X_test=X_test)
+        inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val,X_test=X_test,sample_weight=train_sample_weight)
 
     # predict train
     y_pred_list = []
@@ -106,10 +116,10 @@ def main():
     # optimize prediction
     opt_pred = opt.opt_pred(y_pred_list,opt_weights)
     print('final logloss',opt.log_loss_func([1.],[opt_pred[val_inds]],y_test[val_inds]))
-
+    
     # write prediction
     write_to_csv(ids,opt_pred,"predictions.csv")
-
+    
     # upload
     api_inst.upload_predictions("predictions.csv")
     try:

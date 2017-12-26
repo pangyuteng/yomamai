@@ -73,7 +73,7 @@ def block(m,node_num=[32,32,16],dropout_rate=0.0,mode=-1,cons=False):
 def get_aec(
     input_shape=50,
     mode = -1,
-    dropout_rate=0.0):
+    dropout_rate=0.3):
     
     f_in = Input(shape=(input_shape,))
     e = Dense(1024)(f_in)
@@ -113,7 +113,7 @@ def get_aec(
 
 def get_res(
     input_shape=8,
-    dropout_rate=0.0,):
+    dropout_rate=0.3,):
         
     f_in = Input(shape=(input_shape,))
     m=block(f_in,node_num=[32,32,8],dropout_rate=dropout_rate)
@@ -127,7 +127,7 @@ def get_res(
 
 def get_discriminator(
     input_shape=50,
-    dropout_rate=0.0,):
+    dropout_rate=0.3,):
         
     f_in = Input(shape=(input_shape,))
     m=block(f_in,node_num=[64,64,32],dropout_rate=dropout_rate)
@@ -190,7 +190,7 @@ class AecAdvModel(object):
         self._load_res()
         self.is_trained = True
 
-    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None):
+    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None,**kwargs):
         if X_validation is None or y_validation is None:
             raise IOError()
             

@@ -1,11 +1,17 @@
 
 import sys,os
+import socket 
+
+if socket.gethostname() == 'gtx':
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['OMP_NUM_THREADS'] = '1'
 
 root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(root_path)
 
 from cfg import cfg
 from numerapi.numerapi import NumerAPI
+import models
 
 from data_utils import get_data_era_balanced,data_files
 
@@ -39,7 +45,7 @@ def optimize(trials):
              'nthread' : 2,
              'silent' : 1
              }
-    best = fmin(score, space, algo=tpe.suggest, trials=trials, max_evals=250)
+    best = fmin(score, space, algo=tpe.suggest, trials=trials, max_evals=25)
 
     print(best)
     
@@ -58,8 +64,11 @@ def score(params):
 
 if __name__ == '__main__':
     
-    X_train,X_test,y_train,y_test = get_data_era_balanced(data_files[-1]['trainpath'])
-    
+    _X_train,y_train,_X_test,y_test = get_data_era_balanced(data_files[-1]['trainpath'])
+    adv=models.aec_gan.AecAdvModel()
+    adv.load()
+    X_train = adv.decoder.predict(_X_train)
+    X_test = adv.decoder.predict(_X_test)
     trials = Trials()
 
     optimize(trials)

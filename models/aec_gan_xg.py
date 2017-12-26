@@ -19,7 +19,7 @@ class AecGanXgModel(object):
     def __init__(self,this_dir=THIS_DIR,fdname=FDNAME):
         self.this_dir = this_dir
         self.fdname = fdname
-        self.params = {'max_depth': 11, 'colsample_bytree': 0.5, 'subsample': 0.9500000000000001, 'objective': 'multi:softprob', 'eta': 0.1, 'nthread': 2, 'eval_metric': 'mlogloss', 'silent': 1, 'num_class': 2, 'n_estimators': 171.0, 'gamma': 0.55, 'min_child_weight': 3.0}
+        self.params = {'max_depth': 6, 'colsample_bytree': 0.5, 'subsample': 0.9500000000000001, 'objective': 'multi:softprob', 'eta': 0.1, 'nthread': 2, 'eval_metric': 'mlogloss', 'silent': 1, 'num_class': 2, 'n_estimators': 171.0, 'gamma': 0.55, 'min_child_weight': 3.0}
         self.params.update(dict(seed=69))
         self.num_round =5
         self.is_trained = False

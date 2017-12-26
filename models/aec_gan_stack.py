@@ -1,10 +1,10 @@
 import numpy as np
 from sklearn import metrics
+import yaml
 
 import sys,os
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
+from tqdm import tqdm
 import os,sys
 import datetime
 import numpy as np
@@ -35,9 +35,6 @@ import glob
 import argparse
 
 
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
 class PlotLoss(callbacks.History):
     def __init__(self,fname):
         self.fname = fname
@@ -50,7 +47,7 @@ class PlotLoss(callbacks.History):
         # store history
         pd.DataFrame(self.history_dict).to_csv(self.fname,index=False)
 
-def block(m,node_num=[32,32,16],dropout_rate=0.2,mode=-1,cons=False):
+def block(m,node_num=[32,32,16],dropout_rate=0.0,mode=-1,cons=False):
     merge_list = []
     for n in node_num:
         m = Dense(n)(m)
@@ -70,8 +67,23 @@ def block(m,node_num=[32,32,16],dropout_rate=0.2,mode=-1,cons=False):
         pass
     return m
 
-
-
+def get_datadiscr(
+    input_shape=50,
+    mode = -1,
+    dropout_rate=0.3):
+    f_in = Input(shape=(input_shape,))
+    e = Dense(28)(f_in)
+    e = BatchNormalization(axis=mode)(e)
+    e = Activation('relu')(e)
+    e = Dropout(dropout_rate)(e)
+    e = Dense(28)(e)
+    e = BatchNormalization(axis=mode)(e)
+    e = PReLU()(e)
+    e = Dropout(dropout_rate)(e)
+    e = Dense(1)(e)
+    f_out = Activation('sigmoid')(e)
+    model = Model(inputs=f_in, outputs=f_out)
+    return model
 
 def get_aec(
     input_shape=50,
@@ -117,7 +129,6 @@ def get_aec(
 def get_res(
     input_shape=8,
     dropout_rate=0.3,):
-        
     f_in = Input(shape=(input_shape,))
     m=block(f_in,node_num=[32,32,8],dropout_rate=dropout_rate)
     m=block(m,node_num=[32,32,8],dropout_rate=dropout_rate)
@@ -128,91 +139,80 @@ def get_res(
     model = Model(inputs=f_in, outputs=f_out)
     return model
 
+def get_stack(encoder,resnet,input_shape=50):
+    I = Input(shape=(input_shape,))
+    E = encoder(I)
+    R = resnet(E)
+    model = Model(inputs=I,outputs=R)
+    return model
 
+    
+FDNAME = 'aec_gan_stack_file'
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
-class AecModel(object):
-    def __init__(self,):
+class AecAdvStackModel(object):
+    def __init__(self,this_dir=THIS_DIR,fdname=FDNAME):
         self.is_trained = False
+        self.this_dir = this_dir
+        self.fdname = fdname
+        self.stack_csv = os.path.join(self.this_dir,self.fdname,'stack.csv')
         
-        self.aec_csv = os.path.join(THIS_DIR,r'aec_file/aec.csv')
-        self.res_csv = os.path.join(THIS_DIR,r'aec_file/res.csv')
-
-        self.encoder, self.decoder = get_aec()
+        # copy file sfrom aec_adv_file
+        self.history_path = os.path.join(self.this_dir,self.fdname,'history.yml')
+        self.decoder_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'decoder{:03d}.hdf5'.format(x))
+            
+        self.encoder, self.decoder = get_aec()        
+        self._load_aec()
         self.res = get_res()
-        
-
-
+        self.stack = get_stack(self.encoder,self.res)
+        # things may get dicy from here, perhaps load-aec from gan trained encoder is already pretty overfitting.
+        #self._load_stack(pre=True)# load with weights trained with Adam
+            
     def _load_aec(self):
-        aec_results=pd.read_csv(self.aec_csv)
-        aec_epoch=np.argmin(aec_results['val_loss'])+1
-        aec_weights = glob.glob(os.path.join(THIS_DIR,r'aec_file/weightsAEC.'+'{:03d}'.format(aec_epoch)+'*'))
-        self.aec_weight_file = aec_weights[0]
-        self.decoder.load_weights(self.aec_weight_file)
+        with open(self.history_path, "r") as f:
+            history = yaml.load(f.read())
+        epoch = history[np.argmin([x['decoder_val_loss'] for x in history])]['epoch']
+        self.decoder.load_weights(self.decoder_weight_path(epoch))
         self.encoder.set_weights(self.decoder.get_weights()[:-1])
 
-    def _load_res(self):
-
-        res_results=pd.read_csv(self.res_csv)
+    def _load_stack(self,pre=False):
+        if pre is True:
+            adam_folder = os.path.join(self.this_dir,self.fdname,'adam')
+            res_results=pd.read_csv(os.path.join(adam_folder,'stack.csv'))
+            res_epoch=np.argmin(res_results['val_loss'])+1
+            res_weights = glob.glob(os.path.join(adam_folder,'weightsSTACK.'+'{:03d}'.format(res_epoch)+'*'))
+            self.stack.load_weights(res_weights[0])            
+            return
+        res_results=pd.read_csv(self.stack_csv)
         res_epoch=np.argmin(res_results['val_loss'])+1
-        res_weights = glob.glob(os.path.join(THIS_DIR,r'aec_file/weightsRES.'+'{:03d}'.format(res_epoch)+'*'))
-        self.res_weight_file = res_weights[0]
-        self.res.load_weights(self.res_weight_file)
+        res_weights = glob.glob(os.path.join(self.this_dir,self.fdname,'weightsSTACK.'+'{:03d}'.format(res_epoch)+'*'))
+        self.stack_weight_file = res_weights[0]
+        self.stack.load_weights(self.stack_weight_file)
 
     def load(self):
-        self._load_aec()
-        self._load_res()
+        self._load_stack()
         self.is_trained = True
 
-    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None,**kwargs):
+    def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,sample_weight=None,**kwargs):
         if X_validation is None or y_validation is None:
             raise IOError()
-
-        lr=0.0001,
-        #opt = SGD(lr=lr, decay=1e-6, momentum=0.9, nesterov=True)
-        opt = Adam(lr=lr) #<faster than SGD
-        loss = 'mse' #<-- lets do gan next MSE sucks.
-        self.encoder.compile(loss=loss, optimizer=opt)
-        self.decoder.compile(loss=loss, optimizer=opt)
-
-        
-        aec_callbacks = [
-            PlotLoss(self.aec_csv),
-            callbacks.EarlyStopping(monitor='val_loss', patience=5),
-            callbacks.ModelCheckpoint(os.path.join(
-                THIS_DIR,r'aec_file/weightsAEC.{epoch:03d}.hdf5')),
-        ]
-        
-        decoder_X_train = X_train
-        if X_test is not None:
-            decoder_X_train = np.concatenate([X_train,X_test],axis=0).astype('float')
             
-        nb_epoch= 200
-        batch_size =64
-        history = self.decoder.fit(decoder_X_train,decoder_X_train,shuffle=True,
-            batch_size=batch_size,epochs=nb_epoch,
-            verbose=1,callbacks=aec_callbacks,validation_data=(X_validation,X_validation),)
-
-        self._load_aec()
-
-        lr=0.0001
-        opt = Adam(lr=lr) #< faster than SGD
-        self.res.compile(loss='binary_crossentropy', optimizer=opt)
-
-        res_callbacks = [
-            PlotLoss(self.res_csv),
-            callbacks.EarlyStopping(monitor='val_loss', patience=5),
-            callbacks.ModelCheckpoint(os.path.join(
-                THIS_DIR,r'aec_file/weightsRES.{epoch:03d}.hdf5')),
-        ]
-
+        stacked_opt = Adam(lr=0.0001) # used first to train with 7 epochs
+        #stacked_opt = SGD(lr=0.01)
+        self.stack.compile(loss='binary_crossentropy', optimizer=stacked_opt)
+        
         nb_epoch= 200
         batch_size = 64
 
-        proba = self.encoder.predict(X_train)
-        probaVal = self.encoder.predict(X_validation)
-        history = self.res.fit(proba, y_train,shuffle=True,
+        res_callbacks = [
+            PlotLoss(self.stack_csv),
+            callbacks.EarlyStopping(monitor='val_loss', patience=10),
+            callbacks.ModelCheckpoint(os.path.join(
+                self.this_dir,self.fdname,'weightsSTACK.{epoch:03d}.hdf5')),
+        ]
+        history = self.stack.fit(X_train, y_train,shuffle=True,sample_weight=sample_weight,
             batch_size=batch_size, epochs=nb_epoch,
-            verbose=1, validation_data=(probaVal,y_validation), callbacks=res_callbacks)
+            verbose=1, validation_data=(X_validation,y_validation), callbacks=res_callbacks)
 
         self.load()
 
@@ -220,15 +220,10 @@ class AecModel(object):
         if self.is_trained is False:
             self.load()
 
-
-        eX = self.encoder.predict(X)
-        y_pred = self.res.predict(eX)
-        print(y_pred.shape)
+        y_pred = self.stack.predict(X)
 
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)
-            print('logloss %r' % logloss)
 
         return y_pred, logloss
-
