@@ -5,3 +5,6 @@ from . import aec_gan_xg
 from . import aec_gan_stack
 from . import datatype_discr
 from . import krauss
+from . import ganmore
+from . import sk_tpot
+from . import disentangle
