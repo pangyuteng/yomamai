@@ -233,7 +233,7 @@ class AecAdvModel(object):
                 #c+=1
                 bdecOut = self.decoder.predict(bX_train, verbose=0)
 
-                X = np.concatenate((bdecOut,bX_train),axis=0).astype('float')
+                X = np.concatenate((bX_train,bdecOut),axis=0).astype('float')
                 
                 b_size = bX_train.shape[0]
                 y = [1] * b_size + [0] * b_size

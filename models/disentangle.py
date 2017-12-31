@@ -142,6 +142,7 @@ def get_downstreams(SE,ZE):
     
     return SD,ZC
 
+
 def chunkify(x,y, n):
     """Yield successive n-sized chunks from l."""
     for i in range(0, x.shape[0], n):
@@ -205,10 +206,15 @@ class DisentangleModel(object):
             with open(self.history_path,"r") as f:
                 old_info_list = yaml.load(f.read())
 
-        epoch_num = 200
+        epoch_num = 2000
         batch_size = 64
         
         for epoch in range(epoch_num):
+            
+            train_inds = np.random.permutation(len(y_train))
+            X_train = X_train[train_inds,:]
+            y_train = y_train[train_inds]
+            
             sd_loss_list = []
             zc_loss_list = []
             
@@ -229,10 +235,7 @@ class DisentangleModel(object):
                 continue
 
             for bX_train,by_train in chunkify(X_train,y_train,batch_size):
-               
-                #predX = SD.predict()
-                #predZ = ZC.predict()
-            
+                           
                 sd_loss = self.SD.train_on_batch(bX_train,bX_train)
                 sd_loss_list.append(sd_loss)
                 
@@ -241,15 +244,7 @@ class DisentangleModel(object):
                     zc_loss = self.ZC.train_on_batch(bX_train,by_train)
                     zc_loss_list.append(zc_loss)
                 self.SE.trainable = True
-                
-                # train the SDD with real and fake dataset
-                
-                # train the stacked-SDD
-                
-                # train the ZCD with real and fake dataset 50+label real, 50+pred fake
-                
-                # train the scaked-ZCD
-                
+                 
                 
             pred = self.ZC.predict(X_validation).squeeze()
             val_loss = metrics.log_loss(y_validation,pred)

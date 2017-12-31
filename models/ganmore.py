@@ -214,14 +214,11 @@ class GanMoreModel(object):
         self.discr.trainable = True
         
         info_list = []
-        
-        if os.path.exists(self.history_path):
-            with open(self.history_path,"r") as f:
-                old_info_list = yaml.load(f.read())
+        old_info_list = []
+        #if os.path.exists(self.history_path):
+        #    with open(self.history_path,"r") as f:
+        #        old_info_list = yaml.load(f.read())
                 
-        with open(self.history_path, "w") as f:
-            f.write(yaml.dump(info_list))
-
         epoch_num = 200
         batch_size = 64
 
@@ -232,7 +229,7 @@ class GanMoreModel(object):
             dec_p = self.decoder_weight_path(epoch)
             dis_p = self.discr_weight_path(epoch)
             gan_p = self.gan_weight_path(epoch)
-            if os.path.exists(dec_p) and os.path.exists(dis_p) and os.path.exists(gan_p):
+            if len(old_info_list) > 0 and os.path.exists(dec_p) and os.path.exists(dis_p) and os.path.exists(gan_p):
                 info_list.append(old_info_list[epoch])
                 self.decoder.load_weights(dec_p)
                 self.discr.load_weights(dis_p)
@@ -248,7 +245,7 @@ class GanMoreModel(object):
 
                 added_to_y = by_train+np.expand_dims(0.5*(np.random.random(by_train.shape[0])-0.5),axis=-1)
                 # ^^ spice up the y to be 0+/-0.25 or 1+/-0.25
-                X = np.concatenate((bdecOut,added_to_y),axis=0).astype('float')
+                X = np.concatenate((added_to_y,bdecOut),axis=0).astype('float')
                 
                 b_size = bX_train.shape[0]
                 y = [1] * b_size + [0] * b_size
@@ -264,7 +261,7 @@ class GanMoreModel(object):
                 self.discr.trainable = False
 
                 g_loss = self.decoder.train_on_batch(bX_train,by_train)
-                s_loss = self.gan.train_on_batch(bX_train,one_y)
+                s_loss = self.gan.train_on_batch(by_train[:,:-1],one_y)
                 self.discr.trainable = True
 
                 g_loss_list.append(g_loss)

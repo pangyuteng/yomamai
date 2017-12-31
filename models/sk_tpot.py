@@ -30,7 +30,7 @@ class SkTPot(object):
         if X_train is None:
             raise IOError()
         tpot = TPOTClassifier(generations=5, population_size=50, verbosity=2)
-        tpot.fit(X_train, y_train)
+        tpot.fit(X_train[:1000,:], y_train[:1000])
         print(tpot.score(X_validation, y_validation))
         tpot.export(os.path.join(THIS_DIR,'tpot_pipeline.py'))
         self.load()
@@ -38,6 +38,7 @@ class SkTPot(object):
     def predict(self,X,y_true=None):
         if self.is_trained is False:
             self.load()
+            
         dX = xgb.DMatrix(X)
         y_pred = self.model.predict(dX)[:,1]
         y_pred = np.expand_dims(y_pred,axis=1)
