@@ -28,8 +28,8 @@ model_list = [
     #inprogress#just bad# still testing#('krauss',models.krauss.KraussModel,dict(istrain=True)),
     #('ganmore',models.ganmore.GanMoreModel,dict(istrain=True)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
-    ('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
-    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
+    #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
+    ('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
 ]
 '''
     #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),
