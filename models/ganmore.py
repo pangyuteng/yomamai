@@ -294,7 +294,7 @@ class GanMoreModel(object):
             self.load()
 
         y_pred = self.decoder.predict(X)[:,-1]
-
+        y_pred = np.expand_dims(y_pred,axis=-1)
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)

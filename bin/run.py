@@ -21,16 +21,18 @@ import opt
 
 model_list = [
     #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
-    #('aec',models.aec.AecModel,dict(istrain=True)),
-    #('xg',models.xg.XgModel,dict(istrain=True)),
+    #('aec',models.aec.AecModel,dict(istrain=False)),
+    #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
     #inprogress#just bad# still testing#('krauss',models.krauss.KraussModel,dict(istrain=True)),
-    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=True)),
+    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=False)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
     #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
-    ('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
-]
+    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
+    ('idg',models.icadisengan.IcaDisentangleGanModel,dict(istrain=True)),
+    
+] #ganmore xg aec
 '''
     #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),
     ### try to categorize training set to weight more on those alike test set.

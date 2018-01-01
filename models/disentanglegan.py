@@ -246,16 +246,17 @@ class DisentangleGanModel(object):
         # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
         # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
         '''              
-        sd_opt = Adam(lr=0.000001)
+                  
+        sd_opt = Adam(lr=0.0000001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.01)
+        zc_opt = SGD(lr=0.001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
 
-        ad_opt = Adam(lr=0.000001)
+        ad_opt = Adam(lr=0.0000002)
         self.AD.compile(loss='binary_crossentropy',optimizer=ad_opt)
 
-        ga_opt = Adam(lr=0.000001)
+        ga_opt = Adam(lr=0.0000001)
         self.GA.compile(loss='binary_crossentropy',optimizer=ga_opt)
         
         self.SE.trainable = True
@@ -269,7 +270,7 @@ class DisentangleGanModel(object):
                 old_info_list = yaml.load(f.read())
 
         epoch_num = 2000
-        batch_size = 1024
+        batch_size = 64
         
         for epoch in range(epoch_num):
             
@@ -290,7 +291,7 @@ class DisentangleGanModel(object):
                 self.zc_weight_path(epoch),
                 self.ad_weight_path(epoch),
             ]
-            if all([os.path.exists(x) for x in wlist]) and len(old_info_list)>0:
+            if all([os.path.exists(x) for x in wlist]) and len(old_info_list)>epoch:
                 print(epoch)
                 info_list.append(old_info_list[epoch])
                 self.SE.load_weights(self.se_weight_path(epoch))
