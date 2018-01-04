@@ -9,4 +9,5 @@ from . import ganmore
 from . import sk_tpot
 from . import disentangle
 from . import disentanglegan
-from . import icadisengan
+from . import vae
+from . import moddisengan

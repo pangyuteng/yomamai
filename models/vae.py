@@ -20,15 +20,21 @@ import sklearn
 from matplotlib import pyplot as plt
 from sklearn import cross_validation, metrics
 
+from keras import backend as K
+import tensorflow as tf
+# https://github.com/keras-team/keras/issues/2310 
+K.set_learning_phase(False)
+import keras
+
+
 from keras.datasets import mnist
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.layers.core import Dropout, Activation
 from keras import layers
 from keras.optimizers import SGD, Adam, RMSprop
 from keras.utils import np_utils
 
-from keras.models import Model
-from keras.layers import Input, Dense
+from keras.layers import Input, Dense, Lambda, Layer, Add, Multiply
 from keras.layers import Concatenate
 from keras.layers.normalization import BatchNormalization
 from keras import callbacks
@@ -36,8 +42,12 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras import regularizers
 from keras.layers import PReLU
 
+from sklearn.decomposition import FastICA
 import glob
 import argparse
+from time import time
+from keras.callbacks import TensorBoard
+
 
 
 class PlotLoss(callbacks.History):
@@ -52,159 +62,157 @@ class PlotLoss(callbacks.History):
         # store history
         pd.DataFrame(self.history_dict).to_csv(self.fname,index=False)
 
-def get_upstreams():
-    
-    input_shape=50
-    mode = -1
-    dropout_rate=0.3
-    in_dropout_rate=0.1
-    
-    f_in = Input(shape=(input_shape,))
-    
-    # specific encoder
-    e = Dense(32)(f_in)
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    e = Dense(16)(e)
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    e = Dense(16)(e)
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    e = Dense(8)(e) 
-    e = BatchNormalization(axis=mode)(e)
-    e = Activation('tanh')(e) #?
 
-    #unspecific encoder
-    z = Dense(128)(f_in)
-    z = BatchNormalization(axis=mode)(z)
-    z = LeakyReLU()(z)
-    z = Dropout(dropout_rate)(z)
-    z = Dense(64)(z)
-    z = BatchNormalization(axis=mode)(z)
-    z = LeakyReLU()(z)
-    z = Dropout(dropout_rate)(z)
-    z = Dense(64)(z)
-    z = BatchNormalization(axis=mode)(z)
-    z = LeakyReLU()(z)
-    z = Dropout(dropout_rate)(z)
-    z = Dense(32)(z)
-    z = BatchNormalization(axis=mode)(z)
-    z = Activation('tanh')(z) #?
-     
-    se = Model(inputs=f_in, outputs=e)    
-    ze = Model(inputs=f_in, outputs=z)
-    return se,ze
+# https://github.com/keras-team/keras/blob/master/examples/variational_autoencoder.py
+# https://jaan.io/what-is-variational-autoencoder-vae-tutorial/
+# http://louistiao.me/posts/implementing-variational-autoencoders-in-keras-beyond-the-quickstart-tutorial/
 
-def get_downstreams(SE,ZE):
-    
-    input_shape=50
-    mode = -1
-    dropout_rate=0.3
-    
-    I = Input(shape=(input_shape,))
-    se = SE(I)
-    ze = ZE(I)
-    
-    m = Concatenate(axis=-1)([se,ze])
-    
-    # specific discriminator 
-    d = Dense(42)(m)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)
-    d = Dense(64)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)
-    d = Dense(64)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)    
-    d = Dense(128)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)    
-    d = Dense(50)(d)
-    d = Activation('linear')(d)
-    SD = Model(inputs=I,outputs=d)
-    
-    # unspecific classifier
-    c = Dense(32)(ze) 
-    c = BatchNormalization(axis=mode)(c)
-    c = LeakyReLU()(c)
-    c = Dropout(dropout_rate)(c)
-    c = Dense(16)(c)
-    c = BatchNormalization(axis=mode)(c)
-    c = LeakyReLU()(c)
-    c = Dropout(dropout_rate)(c)
-    c = Dense(1)(c)
-    c = Activation('sigmoid')(c)
-    ZC = Model(inputs=I,outputs=c)
-    
-    return SD,ZC
+def nll(y_true, y_pred):
+    """ Negative log likelihood (Bernoulli). """
+    lh = K.tf.distributions.Bernoulli(probs=y_pred)
+    return - K.sum(lh.log_prob(y_true), axis=-1)
 
-def get_gan(SD,ZC,ADV):
+class KLDivergenceLayer(Layer):
+
+    """ Identity transform layer that adds KL divergence
+    to the final model loss.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.is_placeholder = True
+        super(KLDivergenceLayer, self).__init__(*args, **kwargs)
+
+    def call(self, inputs):
+
+        mu, log_var = inputs
+
+        kl_batch = - .5 * K.sum(1 + log_var -
+                                K.square(mu) -
+                                K.exp(log_var), axis=-1)
+
+        self.add_loss(K.mean(kl_batch), inputs=inputs)
+
+        return inputs
+
+def get_vae(
+    original_dim = 50,
+    intermediate_dim = 32,
+    latent_dim = 8,
+    epsilon_std = 1.0
+    ):
+    
+    # input layer
+    x = Input(shape=(original_dim,))
+    
+    # hidden layer
+    h0 = Dense(intermediate_dim, activation='relu')(x)
+
+    # output layer for mean and log variance
+    z_mu0 = Dense(latent_dim)(h0)
+    z_log_var0 = Dense(latent_dim)(h0)
+
+    # normalize log variance to std dev
+    z_sigma0 = Lambda(lambda t: K.exp(.5*t))(z_log_var0)
+
+    z_mu0, z_log_var0 = KLDivergenceLayer()([z_mu0, z_log_var0])
+
+    eps0 = Input(tensor=K.random_normal(stddev=epsilon_std,
+                            shape=(K.shape(x)[0],latent_dim)))
+    z_eps0 = Multiply()([z_sigma0, eps0])
+    z0 = Add()([z_mu0, z_eps0])
+
+
+    # hidden layer
+    h1 = Dense(intermediate_dim, activation='relu')(x)
+    z_mu1 = Dense(latent_dim)(h1)
+    z_log_var1 = Dense(latent_dim)(h1)
+    z_sigma1 = Lambda(lambda t: K.exp(.5*t))(z_log_var1)
+    z_mu1, z_log_var1 = KLDivergenceLayer()([z_mu1, z_log_var1])
+    eps1 = Input(tensor=K.random_normal(shape=(K.shape(x)[0],
+                                          latent_dim)))
+    z_eps1 = Multiply()([z_sigma1, eps1])
+    z1 = Add()([z_mu1, z_eps1])
+    sd_seq = Sequential([
+        Dense(intermediate_dim, input_dim=latent_dim,
+              activation='relu'),
+        Dense(original_dim, activation='sigmoid')
+    ])
+    
+    m_z = Concatenate(axis=0)([z0,z1]) #???
+    x_pred = sd_seq(z0)
+    SD = Model(inputs=[x, eps0], outputs=x_pred)
+    SE = Model(inputs=x,outputs=z_mu0)
+
+    zd_seq = Sequential([
+        Dense(16, input_dim=latent_dim,
+              activation='relu'),
+        Dense(2, activation='sigmoid')
+    ])
+    z_pred = zd_seq(z1)
+    ZC = Model(inputs=[x, eps1], outputs=z_pred)
+    ZE = Model(inputs=x,outputs=z_mu1)
+
+    m = Concatenate(axis=-1)([x_pred,z_pred])
+    return SE,SD,ZE,ZC,AD,GA
+
+def get_gan():
     I = Input(shape=(50,))
-    sd = SD(I)
-    zc = ZC(I)
-    m = Concatenate(axis=-1)([sd,zc])
-    ad = ADV(m)
-    gan = Model(inputs=I,outputs=ad)
-    return gan
+    AD = get_adv()(m)
+    GA = Model(inputs=x,outputs=AD) 
+
+    GA = Model(inputs=I,outputs=AD) 
 
 def get_adv():
-
     mode = -1
-    dropout_rate=0.3
-    
-    I = Input(shape=(51,))    
-    
-    d = Dense(51)(I)
+    dropout_rate = 0.3
+    I = Input(shape=(52,))
+    d = Dense(52)(I)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
-    d = Dense(128)(d)
+    d = Dense(32)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
-    d = Dense(128)(d)
+    d = Dense(32)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)    
-    d = Dense(32)(d)
+    d = Dense(16)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
-    d = Dense(32)(d)
+    d = Dense(16)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
     d = Dense(1)(d)
     d = Activation('sigmoid')(d)
-    adv = Model(inputs=I,outputs=d)
-    return adv
+
+    AD = Model(inputs=I,outputs=d)
+    return AD
 
 def chunkify(x,y, n):
     """Yield successive n-sized chunks from l."""
     for i in range(0, x.shape[0], n):
         yield x[i:i + n,:],y[i:i + n],
 
-FDNAME = 'disentanglegan_file'
+FDNAME = 'vae_file'
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if os.path.exists(os.path.join(THIS_DIR,FDNAME)) is False:
     os.makedirs(os.path.join(THIS_DIR,FDNAME))
 
-class DisentangleGanModel(object):
+class VaeModel(object):
     def __init__(self,this_dir=THIS_DIR,fdname=FDNAME):
         self.is_trained = False
+        self.tensorboard = TensorBoard(
+            log_dir=os.path.join(THIS_DIR,FDNAME,"log","{}".format(time())),
+            histogram_freq=1,write_grads=True)
+
         self.this_dir = this_dir
         self.fdname = fdname
-                
+
         self.se_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'se{:03d}.hdf5'.format(x)) 
         self.ze_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'ze{:03d}.hdf5'.format(x))
         self.sd_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'sd{:03d}.hdf5'.format(x))
@@ -212,11 +220,7 @@ class DisentangleGanModel(object):
         self.ad_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,'ad{:03d}.hdf5'.format(x))
         self.history_path = os.path.join(self.this_dir,self.fdname,'history.yml')
 
-        self.SE, self.ZE = get_upstreams()
-        self.SD, self.ZC = get_downstreams(self.SE,self.ZE)
-        self.AD = get_adv()
-        self.GA = get_gan(self.SD,self.ZC,self.AD)
-        
+        self.SE, self.SD, self.ZE, self.ZC, self.AD, self.GA = get_vae()
         
     def _load(self):
         with open(self.history_path, "r") as f:
@@ -236,28 +240,26 @@ class DisentangleGanModel(object):
     def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None,**kwargs):
         if X_validation is None or y_validation is None:
             raise IOError()
-            
-        y_train = np.expand_dims(y_train,axis=-1)
-        y_validation = np.expand_dims(y_validation,axis=-1)
-        #y_train = np_utils.to_categorical(y_train)
-        #if y_validation is not None:
-        #    y_validation = np_utils.to_categorical(y_validation)
+                   
+        y_train = np_utils.to_categorical(y_train)
+        if y_validation is not None:
+            y_validation = np_utils.to_categorical(y_validation)
             
         '''
         # at lr of 0.0001 for sd and 0.001 for zc
         # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
         # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
         '''              
-                  
-        sd_opt = Adam(lr=0.0000001)
-        self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.0001)
-        self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
+        #sd_opt = Adam(lr=0.0000001)                                                 
+        self.SD.compile(optimizer='rmsprop', loss=nll)
+        
+        #zc_opt = SGD(lr=0.001)
+        self.ZC.compile(optimizer='rmsprop', loss=nll)
 
         ad_opt = Adam(lr=0.0000002)
         self.AD.compile(loss='binary_crossentropy',optimizer=ad_opt)
-
+        
         ga_opt = Adam(lr=0.0000001)
         self.GA.compile(loss='binary_crossentropy',optimizer=ga_opt)
         
@@ -276,10 +278,10 @@ class DisentangleGanModel(object):
         
         for epoch in range(epoch_num):
             
-            # random shuffle per epoch
-            #train_inds = np.random.permutation(X_train.shape[0])
-            #X_train = X_train[train_inds,:]
-            #y_train = y_train[train_inds,:]
+            # random shuffle per epoch/ too noisy
+            train_inds = np.random.permutation(X_train.shape[0])
+            X_train = X_train[train_inds,:]
+            y_train = y_train[train_inds,:]
 
             sd_loss_list = []
             zc_loss_list = []
@@ -301,15 +303,16 @@ class DisentangleGanModel(object):
                 self.SD.load_weights(self.sd_weight_path(epoch))
                 self.ZC.load_weights(self.zc_weight_path(epoch))
                 self.AD.load_weights(self.ad_weight_path(epoch))
-                print('skipping epoch',len(info_list))
+                print('skipping epoch',epoch)
                 continue
-
+            
             for bX_train,by_train in chunkify(X_train,y_train,batch_size):
                
                 realBatch = np.concatenate([bX_train,by_train],axis=-1)
             
                 predX = self.SD.predict(bX_train)
                 predZ = self.ZC.predict(bX_train)
+                
                 generatedBatch = np.concatenate([predX,predZ],axis=-1)
                 
                 X = np.concatenate((realBatch,generatedBatch),axis=0).astype('float')
@@ -323,7 +326,7 @@ class DisentangleGanModel(object):
                 for _X,_y in [(X[:b_size,:],y[:b_size]),(X[b_size:,:],y[b_size:])]:
                     ad_loss = self.AD.train_on_batch(_X,_y)
                     ad_loss_list.append(ad_loss)
-                    
+                
                 sd_loss = self.SD.train_on_batch(bX_train,bX_train)
                 sd_loss_list.append(sd_loss)
                 
@@ -333,14 +336,19 @@ class DisentangleGanModel(object):
                 for _ in range(3):
                     zc_loss = self.ZC.train_on_batch(bX_train,by_train)
                     zc_loss_list.append(zc_loss)
-                
+                    
                 self.AD.trainable=False
                 self.SE.trainable = True
                 ga_loss = self.GA.train_on_batch(predX,one_y)
                 ga_loss_list.append(ga_loss)
                 
                 self.AD.trainable=True
-
+            
+            #zc_loss = self.ZC.fit(
+            #    X_validation,y_validation,
+            #    verbose=0, callbacks=[self.tensorboard],
+            #    validation_data=(X_validation,y_validation))
+            
             pred = self.ZC.predict(X_validation).squeeze()
             val_loss = metrics.log_loss(y_validation,pred)
             info = {
@@ -363,7 +371,7 @@ class DisentangleGanModel(object):
         
         self.load()
 
-    def predict(self,X,y_true=None):
+    def predict(self,X,y_true=None,icaxlist=None):
         if self.is_trained is False:
             self.load()
 

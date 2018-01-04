@@ -29,8 +29,9 @@ model_list = [
     #('ganmore',models.ganmore.GanMoreModel,dict(istrain=False)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
     #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
-    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
-    ('idg',models.icadisengan.IcaDisentangleGanModel,dict(istrain=True)),
+    ('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
+    #('vae',models.vae.VaeModel,dict(istrain=True)),
+    #('mdg',models.moddisengan.ModDisentangleGanModel,dict(istrain=True)),
     
 ] #ganmore xg aec
 '''

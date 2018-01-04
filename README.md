@@ -13,4 +13,5 @@ https://www.kaggle.com/hsperr/finding-ensamble-weights
 
 CUDA_VISIBLE_DEVICES='1' 
 CUDA_VISIBLE_DEVICES='1' jupyter notebook
+tensorboard --logdir models/moddisentablegan_file/log
 '''

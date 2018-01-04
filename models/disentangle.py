@@ -194,7 +194,7 @@ class DisentangleModel(object):
         sd_opt = Adam(lr=0.0000001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.001)
+        zc_opt = SGD(lr=0.0001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
         
         self.SE.trainable = True
@@ -211,9 +211,9 @@ class DisentangleModel(object):
         
         for epoch in range(epoch_num):
             
-            train_inds = np.random.permutation(len(y_train))
-            X_train = X_train[train_inds,:]
-            y_train = y_train[train_inds]
+            #train_inds = np.random.permutation(len(y_train))
+            #X_train = X_train[train_inds,:]
+            #y_train = y_train[train_inds]
             
             sd_loss_list = []
             zc_loss_list = []
