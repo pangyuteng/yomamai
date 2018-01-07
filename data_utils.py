@@ -41,6 +41,8 @@ def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1):
 
     X_train, X_test, Y_train, Y_test = ([],[],[],[])
     for era in list(np.unique(eras)):
+        if era == 'eraX':
+            continue
         inds = np.where(eras==era)[0]
         sX_train, sX_test, sY_train, sY_test = cross_validation.train_test_split(
             np.take(X,inds,axis=0),np.take(Y,inds,axis=0),

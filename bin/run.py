@@ -31,7 +31,7 @@ model_list = [
     #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
     #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
     #('vae',models.vae.VaeModel,dict(istrain=True)),
-    ('mdg',models.moddisengan.DisentangleModel,dict(istrain=False)),
+    ('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
 ] #ganmore xg aec
 '''
     #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),
@@ -57,7 +57,13 @@ def main():
     shrink_test = None
     print('====================')
     # get data 
-    X_train,y_train,X_val,y_val = get_data_era_balanced(data_files[-1]['trainpath'])
+    X_train_tr,y_train_tr,X_val_tr,y_val_tr = get_data_era_balanced(data_files[-1]['trainpath'])
+    X_train_te,y_train_te,X_val_te,y_val_te = get_data_era_balanced(data_files[-1]['testpath'])
+    X_train = np.concatenate([X_train_tr,X_train_te],axis=0)
+    y_train = np.concatenate([y_train_tr,y_train_te],axis=0)
+    X_val = np.concatenate([X_val_tr,X_val_te],axis=0)
+    y_val = np.concatenate([y_val_tr,y_val_te],axis=0)
+
     X_test,y_test,_,_,_=get_data(data_files[-1]['testpath'])
 
     # for testing
