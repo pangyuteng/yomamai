@@ -48,6 +48,34 @@ class PlotLoss(callbacks.History):
         # store history
         pd.DataFrame(self.history_dict).to_csv(self.fname,index=False)
 
+
+def unit0(input,num,
+          drop=0.3,axis=-1,
+          kernel_regularizer=regularizers.l2(10e-8),
+          activity_regularizer=regularizers.l1(10e-8),):
+    e = Dense(num,
+            kernel_regularizer=kernel_regularizer,
+            activity_regularizer=activity_regularizer,
+        )(input) #l1 l2?
+    e = BatchNormalization(axis=axis)(e)
+    e = PReLU()(e)
+    e = Dropout(drop)(e)
+    return e
+
+def unit1(input,num,
+          drop=0.3,
+          axis=-1,
+          activation='sigmoid',
+          kernel_regularizer=regularizers.l2(10e-8),
+          activity_regularizer=regularizers.l1(10e-8),):
+    e = Dense(num,
+            kernel_regularizer=kernel_regularizer,
+            activity_regularizer=activity_regularizer,
+        )(input)
+    e = BatchNormalization(axis=axis)(e)
+    e = Activation(activation)(e)
+    return e
+
 def get_upstreams():
     
     input_shape=50
@@ -58,38 +86,15 @@ def get_upstreams():
     f_in = Input(shape=(input_shape,))
     
     # specific encoder
-    e = Dense(32)(f_in)
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    e = Dense(16)(e)
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    e = Dense(16)(e)
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    e = Dense(8)(e) 
-    e = BatchNormalization(axis=mode)(e)
-    e = Activation('tanh')(e) #?
+    e = unit0(f_in,1024,axis=mode,drop=dropout_rate)
+    e = unit0(e,128,axis=mode,drop=dropout_rate)
+    e = unit0(e,64,axis=mode,drop=dropout_rate)
+    e = unit1(e,8,axis=mode,drop=dropout_rate,activation='sigmoid')
 
     #unspecific encoder
-    z = Dense(32)(f_in)
-    z = BatchNormalization(axis=mode)(z)
-    z = LeakyReLU()(z)
-    z = Dropout(dropout_rate)(z)
-    z = Dense(16)(z)
-    z = BatchNormalization(axis=mode)(z)
-    z = LeakyReLU()(z)
-    z = Dropout(dropout_rate)(z)
-    z = Dense(16)(z)
-    z = BatchNormalization(axis=mode)(z)
-    z = LeakyReLU()(z)
-    z = Dropout(dropout_rate)(z)
-    z = Dense(8)(z)
-    z = BatchNormalization(axis=mode)(z)
-    z = Activation('tanh')(z) #?
+    z = unit0(f_in,16,axis=mode,drop=dropout_rate)
+    z = unit0(z,16,axis=mode,drop=dropout_rate)
+    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
      
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
@@ -108,36 +113,39 @@ def get_downstreams(SE,ZE):
     m = Concatenate(axis=-1)([se,ze])
     
     # specific discriminator    
-    d = Dense(16)(m)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)
-    d = Dense(16)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)
-    d = Dense(32)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)    
-    d = Dense(50)(d) 
-    d = Activation('linear')(d)
+    d = unit0(m,64,axis=mode,drop=dropout_rate)
+    d = unit0(d,128,axis=mode,drop=dropout_rate)
+    d = unit0(d,1024,axis=mode,drop=dropout_rate)
+    d = unit1(d,50,axis=mode,drop=dropout_rate,activation='sigmoid')
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    c = Dense(8)(ze) #follow the paper first, next try `m`?
-    c = BatchNormalization(axis=mode)(c)
-    c = LeakyReLU()(c)
-    c = Dropout(dropout_rate)(c)
-    c = Dense(8)(c)
-    c = BatchNormalization(axis=mode)(c)
-    c = LeakyReLU()(c)
-    c = Dropout(dropout_rate)(c)
-    c = Dense(1)(c) # use softmax with dense of 2?
-    c = Activation('sigmoid')(c)
-    ZC = Model(inputs=I,outputs=c)
-    
+    #c=block(ze,node_num=[32,32,8],dropout_rate=dropout_rate)
+    c = unit0(ze,8,axis=mode,drop=dropout_rate)
+    c = unit1(c,1,axis=mode,drop=dropout_rate,activation='sigmoid')
+    ZC = Model(inputs=I, outputs=c)
+
     return SD,ZC
+
+def block(m,node_num=[32,32,16],dropout_rate=0.2,mode=-1,cons=False):
+    merge_list = []
+    for n in node_num:
+        m = Dense(n)(m)
+        m = BatchNormalization(axis=mode)(m)
+        m = PReLU()(m)
+        m = Dropout(dropout_rate)(m)
+        merge_list.append(m)
+    if len(merge_list) > 1:
+        m = Concatenate(axis=-1)([merge_list[0],merge_list[-1]])
+        if cons is True:
+            m = Dense(node_num[-1])(m)
+            m = BatchNormalization(axis=mode)(m)
+            m = PReLU()(m)
+            m = Dropout(dropout_rate)(m)
+
+    elif len(merge_list) == 1:
+        pass
+    return m
 
 
 def chunkify(x,y, n):
@@ -189,11 +197,9 @@ class DisentangleModel(object):
         # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
         '''
         sd_opt = Adam(lr=0.000001)
-        #sd_opt = optimizers.Adadelta()
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
         zc_opt = SGD(lr=0.0001)
-        #zc_opt = optimizers.Adadelta()
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
         
         self.SE.trainable = True
@@ -245,13 +251,17 @@ class DisentangleModel(object):
                 self.SE.trainable = True
                  
                 
-            pred = self.ZC.predict(X_validation).squeeze()
-            val_loss = metrics.log_loss(y_validation,pred)
+            predZ = self.ZC.predict(X_validation).squeeze()
+            z_val_loss = metrics.log_loss(y_validation,predZ)
+            predX = self.SD.predict(X_validation).squeeze()
+            s_val_loss = metrics.mean_squared_error(X_validation,predX)
+
             info = {
                 'epoch':epoch,
                 'sd_loss':float(np.mean(sd_loss_list)),
                 'zc_loss':float(np.mean(zc_loss_list)),
-                'val_loss': float(val_loss),
+                'val_loss': float(z_val_loss),
+                'sd_val_loss': float(s_val_loss),
             }
             info_list.append(info)
             print(info)

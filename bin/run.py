@@ -31,7 +31,7 @@ model_list = [
     #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
     #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
     #('vae',models.vae.VaeModel,dict(istrain=True)),
-    ('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
+    ('mdg',models.moddisengan.DisentangleModel,dict(istrain=False)),
 ] #ganmore xg aec
 '''
     #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),

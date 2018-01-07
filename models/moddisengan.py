@@ -58,7 +58,7 @@ def unit0(input,num,
             activity_regularizer=activity_regularizer,
         )(input) #l1 l2?
     e = BatchNormalization(axis=axis)(e)
-    e = LeakyReLU()(e)
+    e = PReLU()(e)
     e = Dropout(drop)(e)
     return e
 
@@ -122,7 +122,6 @@ def get_downstreams(SE,ZE):
     # unspecific classifier
     #c=block(ze,node_num=[32,32,8],dropout_rate=dropout_rate)
     c = unit0(ze,8,axis=mode,drop=dropout_rate)
-    c = unit0(c,8,axis=mode,drop=dropout_rate)
     c = unit1(c,1,axis=mode,drop=dropout_rate,activation='sigmoid')
     ZC = Model(inputs=I, outputs=c)
 
