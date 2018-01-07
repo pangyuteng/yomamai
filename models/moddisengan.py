@@ -191,15 +191,15 @@ class DisentangleModel(object):
     def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None,**kwargs):
         if X_validation is None or y_validation is None:
             raise IOError()
-        '''
-        # at lr of 0.0001 for sd and 0.001 for zc
-        # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
-        # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
-        '''
+
+        train_inds = np.random.permutation(len(y_train))
+        X_train = X_train[train_inds,:]
+        y_train = y_train[train_inds]
+        
         sd_opt = Adam(lr=0.000001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.0001)
+        zc_opt = SGD(lr=0.001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
         
         self.SE.trainable = True
@@ -215,11 +215,7 @@ class DisentangleModel(object):
         batch_size = 64
         
         for epoch in range(epoch_num):
-            
-            #train_inds = np.random.permutation(len(y_train))
-            #X_train = X_train[train_inds,:]
-            #y_train = y_train[train_inds]
-            
+                        
             sd_loss_list = []
             zc_loss_list = []
             
