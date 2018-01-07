@@ -20,8 +20,8 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 import opt
 
 model_list = [
-    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
     #('aec',models.aec.AecModel,dict(istrain=False)),
+    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
     #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
@@ -29,10 +29,9 @@ model_list = [
     #('ganmore',models.ganmore.GanMoreModel,dict(istrain=False)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
     #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
-    ('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
+    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
     #('vae',models.vae.VaeModel,dict(istrain=True)),
-    #('mdg',models.moddisengan.ModDisentangleGanModel,dict(istrain=True)),
-    
+    ('mdg',models.moddisengan.DisentangleModel,dict(istrain=False)),
 ] #ganmore xg aec
 '''
     #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),

@@ -20,6 +20,7 @@ from keras.models import Sequential
 from keras.layers.core import Dropout, Activation
 from keras import layers
 from keras.optimizers import SGD, Adam, RMSprop
+from keras import optimizers
 from keras.utils import np_utils
 
 from keras.models import Model
@@ -74,19 +75,19 @@ def get_upstreams():
     e = Activation('tanh')(e) #?
 
     #unspecific encoder
-    z = Dense(128)(f_in)
+    z = Dense(32)(f_in)
     z = BatchNormalization(axis=mode)(z)
     z = LeakyReLU()(z)
     z = Dropout(dropout_rate)(z)
-    z = Dense(64)(z)
+    z = Dense(16)(z)
     z = BatchNormalization(axis=mode)(z)
     z = LeakyReLU()(z)
     z = Dropout(dropout_rate)(z)
-    z = Dense(64)(z)
+    z = Dense(16)(z)
     z = BatchNormalization(axis=mode)(z)
     z = LeakyReLU()(z)
     z = Dropout(dropout_rate)(z)
-    z = Dense(32)(z)
+    z = Dense(8)(z)
     z = BatchNormalization(axis=mode)(z)
     z = Activation('tanh')(z) #?
      
@@ -107,32 +108,28 @@ def get_downstreams(SE,ZE):
     m = Concatenate(axis=-1)([se,ze])
     
     # specific discriminator    
-    d = Dense(42)(m)
+    d = Dense(16)(m)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
-    d = Dense(64)(d)
+    d = Dense(16)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
-    d = Dense(64)(d)
+    d = Dense(32)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)    
-    d = Dense(128)(d) 
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)
-    d = Dense(50)(d)
+    d = Dense(50)(d) 
     d = Activation('linear')(d)
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    c = Dense(32)(ze) #follow the paper first, next try `m`?
+    c = Dense(8)(ze) #follow the paper first, next try `m`?
     c = BatchNormalization(axis=mode)(c)
     c = LeakyReLU()(c)
     c = Dropout(dropout_rate)(c)
-    c = Dense(16)(c)
+    c = Dense(8)(c)
     c = BatchNormalization(axis=mode)(c)
     c = LeakyReLU()(c)
     c = Dropout(dropout_rate)(c)
@@ -191,10 +188,12 @@ class DisentangleModel(object):
         # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
         # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
         '''
-        sd_opt = Adam(lr=0.0000001)
+        sd_opt = Adam(lr=0.000001)
+        #sd_opt = optimizers.Adadelta()
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
         zc_opt = SGD(lr=0.0001)
+        #zc_opt = optimizers.Adadelta()
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
         
         self.SE.trainable = True

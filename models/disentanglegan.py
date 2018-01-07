@@ -52,6 +52,7 @@ class PlotLoss(callbacks.History):
         # store history
         pd.DataFrame(self.history_dict).to_csv(self.fname,index=False)
 
+
 def get_upstreams():
     
     input_shape=50
@@ -79,19 +80,19 @@ def get_upstreams():
     e = Activation('tanh')(e) #?
 
     #unspecific encoder
-    z = Dense(128)(f_in)
+    z = Dense(32)(f_in)
     z = BatchNormalization(axis=mode)(z)
     z = LeakyReLU()(z)
     z = Dropout(dropout_rate)(z)
-    z = Dense(64)(z)
+    z = Dense(16)(z)
     z = BatchNormalization(axis=mode)(z)
     z = LeakyReLU()(z)
     z = Dropout(dropout_rate)(z)
-    z = Dense(64)(z)
+    z = Dense(16)(z)
     z = BatchNormalization(axis=mode)(z)
     z = LeakyReLU()(z)
     z = Dropout(dropout_rate)(z)
-    z = Dense(32)(z)
+    z = Dense(8)(z)
     z = BatchNormalization(axis=mode)(z)
     z = Activation('tanh')(z) #?
      
@@ -111,40 +112,36 @@ def get_downstreams(SE,ZE):
     
     m = Concatenate(axis=-1)([se,ze])
     
-    # specific discriminator 
-    d = Dense(42)(m)
+    # specific discriminator    
+    d = Dense(16)(m)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
-    d = Dense(64)(d)
+    d = Dense(16)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)
-    d = Dense(64)(d)
+    d = Dense(32)(d)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)    
-    d = Dense(128)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)    
-    d = Dense(50)(d)
+    d = Dense(50)(d) 
     d = Activation('linear')(d)
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    c = Dense(32)(ze) 
+    c = Dense(8)(ze) #follow the paper first, next try `m`?
     c = BatchNormalization(axis=mode)(c)
     c = LeakyReLU()(c)
     c = Dropout(dropout_rate)(c)
-    c = Dense(16)(c)
+    c = Dense(8)(c)
     c = BatchNormalization(axis=mode)(c)
     c = LeakyReLU()(c)
     c = Dropout(dropout_rate)(c)
-    c = Dense(1)(c)
+    c = Dense(1)(c) # use softmax with dense of 2?
     c = Activation('sigmoid')(c)
     ZC = Model(inputs=I,outputs=c)
-    
+
     return SD,ZC
 
 def get_gan(SD,ZC,ADV):
@@ -249,16 +246,16 @@ class DisentangleGanModel(object):
         # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
         '''              
                   
-        sd_opt = Adam(lr=0.0000001)
+        sd_opt = Adam(lr=0.000001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
         zc_opt = SGD(lr=0.0001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
 
-        ad_opt = Adam(lr=0.0000002)
+        ad_opt = Adam(lr=0.000001)
         self.AD.compile(loss='binary_crossentropy',optimizer=ad_opt)
 
-        ga_opt = Adam(lr=0.0000001)
+        ga_opt = SGD(lr=0.00001)
         self.GA.compile(loss='binary_crossentropy',optimizer=ga_opt)
         
         self.SE.trainable = True
