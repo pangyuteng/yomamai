@@ -220,13 +220,13 @@ class DisentangleModel(object):
 
         reduce_lr = callbacks.ReduceLROnPlateau(
                         monitor='val_loss', factor=0.2,
-                        patience=3, mode='min')
+                        patience=5, mode='min')
         reduce_lr.on_train_begin()                
         reduce_lr.model = self.ZC
         
         early_stop = callbacks.EarlyStopping(
                 monitor='val_loss', mode='min',
-                        min_delta=0, patience=5)
+                        min_delta=0, patience=10)
         early_stop.on_train_begin()                
         early_stop.model = self.ZC
 
