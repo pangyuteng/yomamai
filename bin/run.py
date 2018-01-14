@@ -20,18 +20,18 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 import opt
 
 model_list = [
-    #('aec',models.aec.AecModel,dict(istrain=False)),
+    #('aec',models.aec.AecModel,dict(istrain=True)),
     #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
     #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
     #inprogress#just bad# still testing#('krauss',models.krauss.KraussModel,dict(istrain=True)),
-    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=False)),
+    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=True)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
-    #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
+    ('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
     #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
     #('vae',models.vae.VaeModel,dict(istrain=True)),
-    ('mdg',models.moddisengan.DisentangleModel,dict(istrain=False)),
+    #('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
 ] #ganmore xg aec
 '''
     #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),

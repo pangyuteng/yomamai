@@ -92,10 +92,12 @@ def get_upstreams():
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='sigmoid')
 
     #unspecific encoder
-    z = unit0(f_in,16,axis=mode,drop=dropout_rate)
-    z = unit0(z,16,axis=mode,drop=dropout_rate)
+    #z = unit0(f_in,16,axis=mode,drop=dropout_rate)
+    #z = unit0(z,16,axis=mode,drop=dropout_rate)
+    #z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
+    z = unit0(f_in,8,axis=mode,drop=dropout_rate)
     z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
-     
+        
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
     return se,ze
@@ -196,11 +198,12 @@ class DisentangleModel(object):
         # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
         # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
         '''
-        sd_opt = Adam(lr=0.000001)
+        #sd_opt = Adam(lr=0.000001)
+        sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
         #zc_opt = SGD(lr=0.001) # after about 10 epoch swich to lr of 0.0001 below
-        zc_opt = SGD(lr=0.0001)
+        zc_opt = optimizers.Nadam(lr=0.0001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
         
         self.SE.trainable = True
@@ -217,9 +220,9 @@ class DisentangleModel(object):
         
         for epoch in range(epoch_num):
             
-            #train_inds = np.random.permutation(len(y_train))
-            #X_train = X_train[train_inds,:]
-            #y_train = y_train[train_inds]
+            train_inds = np.random.permutation(len(y_train))
+            X_train = X_train[train_inds,:]
+            y_train = y_train[train_inds]
             
             sd_loss_list = []
             zc_loss_list = []

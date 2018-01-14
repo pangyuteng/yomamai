@@ -199,7 +199,7 @@ class DisentangleModel(object):
         sd_opt = Adam(lr=0.000001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.01)
+        zc_opt = SGD(lr=0.0001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
         
         self.SE.trainable = True

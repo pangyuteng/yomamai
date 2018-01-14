@@ -219,7 +219,7 @@ class GanMoreModel(object):
         #    with open(self.history_path,"r") as f:
         #        old_info_list = yaml.load(f.read())
                 
-        epoch_num = 200
+        epoch_num = 20
         batch_size = 64
 
         for epoch in range(epoch_num):
