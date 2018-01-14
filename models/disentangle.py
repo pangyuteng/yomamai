@@ -220,9 +220,16 @@ class DisentangleModel(object):
 
         reduce_lr = callbacks.ReduceLROnPlateau(
                         monitor='val_loss', factor=0.2,
-                        patience=5, min_lr=0.001)
+                        patience=3, mode='min')
         reduce_lr.on_train_begin()                
         reduce_lr.model = self.ZC
+        
+        early_stop = callbacks.EarlyStopping(
+                monitor='val_loss', mode='min',
+                        min_delta=0, patience=5)
+        early_stop.on_train_begin()                
+        early_stop.model = self.ZC
+
         
         epoch_num = 2000
         batch_size = 64
@@ -287,8 +294,14 @@ class DisentangleModel(object):
                 f.write(yaml.dump(info_list))
             
             reduce_lr.on_epoch_end(epoch,logs=info)
-            print('!!lr',reduce_lr.model.optimizer.lr.eval())
+            early_stop.on_epoch_end(epoch,logs=info)
             
+            print('!!lr',reduce_lr.model.optimizer.lr.eval(),reduce_lr.wait)
+            print('!!es',early_stop.stopped_epoch,early_stop.wait)
+            
+            if early_stop.stopped_epoch!=0 and early_stop.stopped_epoch <= epoch:
+                break
+                
         self.load()
 
     def predict(self,X,y_true=None):
