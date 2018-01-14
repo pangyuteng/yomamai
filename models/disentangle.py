@@ -94,9 +94,6 @@ def get_upstreams():
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='sigmoid')
 
     #unspecific encoder
-    #z = unit0(f_in,16,axis=mode,drop=dropout_rate)
-    #z = unit0(z,16,axis=mode,drop=dropout_rate)
-    #z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
     z = unit0(f_in,4,axis=mode,drop=dropout_rate)
     z = unit1(z,4,axis=mode,drop=dropout_rate,activation='sigmoid')
         

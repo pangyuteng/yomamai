@@ -25,6 +25,7 @@ from keras.models import Sequential
 from keras.layers.core import Dropout, Activation
 from keras import layers
 from keras.optimizers import SGD, Adam, RMSprop
+from keras import optimizers
 from keras.utils import np_utils
 
 from keras.models import Model
@@ -35,6 +36,9 @@ from keras import callbacks
 from keras.layers.advanced_activations import LeakyReLU
 from keras import regularizers
 from keras.layers import PReLU
+
+import tensorflow as tf
+sess = tf.InteractiveSession()
 
 import glob
 import argparse
@@ -96,10 +100,9 @@ def get_upstreams():
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='sigmoid')
 
     #unspecific encoder
-    z = unit0(f_in,16,axis=mode,drop=dropout_rate)
-    z = unit0(z,16,axis=mode,drop=dropout_rate)
-    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
-     
+    z = unit0(f_in,4,axis=mode,drop=dropout_rate)
+    z = unit1(z,4,axis=mode,drop=dropout_rate,activation='sigmoid')
+        
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
     return se,ze
@@ -124,8 +127,7 @@ def get_downstreams(SE,ZE):
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    #c=block(ze,node_num=[32,32,8],dropout_rate=dropout_rate)
-    c = unit0(ze,8,axis=mode,drop=dropout_rate)
+    c = unit0(ze,4,axis=mode,drop=dropout_rate)
     c = unit1(c,1,axis=mode,drop=dropout_rate,activation='sigmoid')
     ZC = Model(inputs=I, outputs=c)
 
@@ -214,18 +216,30 @@ class DisentangleGanModel(object):
         #if y_validation is not None:
         #    y_validation = np_utils.to_categorical(y_validation)
 
-        sd_opt = Adam(lr=0.000001)
+        sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.0001)
+        zc_opt = optimizers.Nadam(lr=0.0001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
 
-        ad_opt = Adam(lr=0.000001)
+        ad_opt = optimizers.Nadam(lr=0.00001)
         self.AD.compile(loss='binary_crossentropy',optimizer=ad_opt)
 
-        ga_opt = SGD(lr=0.0000005)
-        self.GA.compile(loss='binary_crossentropy',optimizer=ga_opt)
-                
+        ga_opt = optimizers.Nadam(lr=0.000005)
+        self.GA.compile(loss='binary_crosoptimizerssentropy',optimizer=ga_opt)
+        
+        reduce_lr = callbacks.ReduceLROnPlateau(
+                        monitor='val_loss', factor=0.2,
+                        patience=5, mode='min')
+        reduce_lr.on_train_begin() 
+        reduce_lr.model = self.ZC
+        
+        early_stop = callbacks.EarlyStopping(
+                        monitor='val_loss', mode='min',
+                        min_delta=0, patience=10)
+        early_stop.on_train_begin()                
+        early_stop.model = self.ZC
+        
         info_list = []
         
         old_info_list = []
@@ -238,7 +252,10 @@ class DisentangleGanModel(object):
         
         for epoch in range(epoch_num):
             
-
+            train_inds = np.random.permutation(len(y_train))
+            X_train = X_train[train_inds,:]
+            y_train = y_train[train_inds]
+            
             sd_loss_list = []
             zc_loss_list = []
             ad_loss_list = []
@@ -252,14 +269,13 @@ class DisentangleGanModel(object):
                 self.ad_weight_path(epoch),
             ]
             if all([os.path.exists(x) for x in wlist]) and len(old_info_list)>epoch:
-                print(epoch)
                 info_list.append(old_info_list[epoch])
                 self.SE.load_weights(self.se_weight_path(epoch))
                 self.ZE.load_weights(self.ze_weight_path(epoch))
                 self.SD.load_weights(self.sd_weight_path(epoch))
                 self.ZC.load_weights(self.zc_weight_path(epoch))
                 self.AD.load_weights(self.ad_weight_path(epoch))
-                print('skipping epoch',len(info_list))
+                print('skipping epoch',epoch)
                 continue
 
             for bX_train,by_train in chunkify(X_train,y_train,batch_size):
@@ -308,8 +324,8 @@ class DisentangleGanModel(object):
                 'zc_loss':float(np.mean(zc_loss_list)),
                 'ad_loss':float(np.mean(ad_loss_list)),
                 'ga_loss':float(np.mean(ga_loss_list)),
-                'val_loss': float(z_val_loss),
                 'sd_val_loss': float(s_val_loss),
+                'val_loss': float(z_val_loss),
             }
             info_list.append(info)
             print(info)
@@ -320,6 +336,15 @@ class DisentangleGanModel(object):
             self.AD.save_weights(self.ad_weight_path(epoch),True)
             with open(self.history_path, "w") as f:
                 f.write(yaml.dump(info_list))
+        
+            reduce_lr.on_epoch_end(epoch,logs=info)
+            early_stop.on_epoch_end(epoch,logs=info)
+            
+            print('!!lr',reduce_lr.model.optimizer.lr.eval(),reduce_lr.wait)
+            print('!!es',early_stop.stopped_epoch,early_stop.wait)
+            
+            if early_stop.stopped_epoch!=0 and early_stop.stopped_epoch <= epoch:
+                break
         
         self.load()
 
