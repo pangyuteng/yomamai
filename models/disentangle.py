@@ -35,6 +35,8 @@ from keras.layers import PReLU
 import glob
 import argparse
 
+import tensorflow as tf
+sess = tf.InteractiveSession()
 
 class PlotLoss(callbacks.History):
     def __init__(self,fname):
@@ -95,8 +97,8 @@ def get_upstreams():
     #z = unit0(f_in,16,axis=mode,drop=dropout_rate)
     #z = unit0(z,16,axis=mode,drop=dropout_rate)
     #z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
-    z = unit0(f_in,8,axis=mode,drop=dropout_rate)
-    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
+    z = unit0(f_in,4,axis=mode,drop=dropout_rate)
+    z = unit1(z,4,axis=mode,drop=dropout_rate,activation='sigmoid')
         
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
@@ -122,8 +124,7 @@ def get_downstreams(SE,ZE):
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    #c=block(ze,node_num=[32,32,8],dropout_rate=dropout_rate)
-    c = unit0(ze,8,axis=mode,drop=dropout_rate)
+    c = unit0(ze,4,axis=mode,drop=dropout_rate)
     c = unit1(c,1,axis=mode,drop=dropout_rate,activation='sigmoid')
     ZC = Model(inputs=I, outputs=c)
 
@@ -198,6 +199,8 @@ class DisentangleModel(object):
         # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
         # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
         '''
+        
+        
         #sd_opt = Adam(lr=0.000001)
         sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
@@ -205,7 +208,7 @@ class DisentangleModel(object):
         #zc_opt = SGD(lr=0.001) # after about 10 epoch swich to lr of 0.0001 below
         zc_opt = optimizers.Nadam(lr=0.0001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
-        
+
         self.SE.trainable = True
         
         info_list = []
@@ -215,6 +218,12 @@ class DisentangleModel(object):
             with open(self.history_path,"r") as f:
                 old_info_list = yaml.load(f.read())
 
+        reduce_lr = callbacks.ReduceLROnPlateau(
+                        monitor='val_loss', factor=0.2,
+                        patience=5, min_lr=0.001)
+        reduce_lr.on_train_begin()                
+        reduce_lr.model = self.ZC
+        
         epoch_num = 2000
         batch_size = 64
         
@@ -276,7 +285,10 @@ class DisentangleModel(object):
             
             with open(self.history_path, "w") as f:
                 f.write(yaml.dump(info_list))
-        
+            
+            reduce_lr.on_epoch_end(epoch,logs=info)
+            print('!!lr',reduce_lr.model.optimizer.lr.eval())
+            
         self.load()
 
     def predict(self,X,y_true=None):
