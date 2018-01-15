@@ -225,14 +225,20 @@ class DisentangleGanModel(object):
         ad_opt = optimizers.Nadam(lr=0.00001)
         self.AD.compile(loss='binary_crossentropy',optimizer=ad_opt)
 
-        ga_opt = optimizers.Nadam(lr=0.000005)
-        self.GA.compile(loss='binary_crosoptimizerssentropy',optimizer=ga_opt)
+        ga_opt = optimizers.Nadam(lr=0.000001)
+        self.GA.compile(loss='binary_crossentropy',optimizer=ga_opt)
         
         reduce_lr = callbacks.ReduceLROnPlateau(
                         monitor='val_loss', factor=0.2,
                         patience=5, mode='min')
         reduce_lr.on_train_begin() 
         reduce_lr.model = self.ZC
+        
+        sd_reduce_lr = callbacks.ReduceLROnPlateau(
+                        monitor='sd_val_loss', factor=0.2,
+                        patience=5, mode='min')
+        sd_reduce_lr.on_train_begin()                
+        sd_reduce_lr.model = self.SD
         
         early_stop = callbacks.EarlyStopping(
                         monitor='val_loss', mode='min',
@@ -338,6 +344,8 @@ class DisentangleGanModel(object):
                 f.write(yaml.dump(info_list))
         
             reduce_lr.on_epoch_end(epoch,logs=info)
+            sd_reduce_lr.on_epoch_end(epoch,logs=info)
+            
             early_stop.on_epoch_end(epoch,logs=info)
             
             print('!!lr',reduce_lr.model.optimizer.lr.eval(),reduce_lr.wait)

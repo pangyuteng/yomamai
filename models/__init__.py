@@ -11,3 +11,5 @@ from . import disentangle
 from . import disentanglegan
 from . import vae
 from . import moddisengan
+from . import tsne
+from . import tsne_simple

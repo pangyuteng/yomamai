@@ -26,12 +26,13 @@ model_list = [
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
     #inprogress#just bad# still testing#('krauss',models.krauss.KraussModel,dict(istrain=True)),
-    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=True)),
+    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=False)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
-    ('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
+    #('disentangle',models.disentangle.DisentangleModel,dict(istrain=False)),
     #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
     #('vae',models.vae.VaeModel,dict(istrain=True)),
     #('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
+    ('tsnesimple',models.tsne_simple.TsneSimple,dict(istrain=True)),
 ] #ganmore xg aec
 '''
     #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),
