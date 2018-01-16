@@ -122,7 +122,7 @@ def main():
     y_pred_list = []
     for name,clsf,params in model_list:
         inst = clsf()
-        y_pred,_ = inst.predict(X_test)
+        y_pred,_ = inst.predict(X_test.values)
         y_pred_list.append(y_pred)
         print('logloss',name,opt.log_loss_func([1.],[y_pred[val_inds]],y_test[val_inds]))
 
