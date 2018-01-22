@@ -35,6 +35,8 @@ from keras.layers import PReLU
 import glob
 import argparse
 
+import tensorflow as tf
+sess = tf.InteractiveSession()
 
 class PlotLoss(callbacks.History):
     def __init__(self,fname):
@@ -89,13 +91,12 @@ def get_upstreams():
     e = unit0(f_in,1024,axis=mode,drop=dropout_rate)
     e = unit0(e,128,axis=mode,drop=dropout_rate)
     e = unit0(e,64,axis=mode,drop=dropout_rate)
-    e = unit1(e,8,axis=mode,drop=dropout_rate,activation='sigmoid')
+    e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
-    z = unit0(f_in,16,axis=mode,drop=dropout_rate)
-    z = unit0(z,16,axis=mode,drop=dropout_rate)
-    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='sigmoid')
-     
+    z = unit0(f_in,4,axis=mode,drop=dropout_rate)
+    z = unit1(z,4,axis=mode,drop=dropout_rate,activation='relu')
+        
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
     return se,ze
@@ -120,8 +121,7 @@ def get_downstreams(SE,ZE):
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    #c=block(ze,node_num=[32,32,8],dropout_rate=dropout_rate)
-    c = unit0(ze,8,axis=mode,drop=dropout_rate)
+    c = unit0(ze,4,axis=mode,drop=dropout_rate)
     c = unit1(c,1,axis=mode,drop=dropout_rate,activation='sigmoid')
     ZC = Model(inputs=I, outputs=c)
 
@@ -153,13 +153,13 @@ def chunkify(x,y, n):
     for i in range(0, x.shape[0], n):
         yield x[i:i + n,:],y[i:i + n],
 
-FDNAME = 'moddisentanglegan_file'
+FDNAME = 'moddisentangle_file'
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if os.path.exists(os.path.join(THIS_DIR,FDNAME)) is False:
     os.makedirs(os.path.join(THIS_DIR,FDNAME))
 
-class DisentangleModel(object):
+class ModDisentangleModel(object):
     def __init__(self,this_dir=THIS_DIR,fdname=FDNAME):
         self.is_trained = False
         self.this_dir = this_dir
@@ -191,17 +191,24 @@ class DisentangleModel(object):
     def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None,**kwargs):
         if X_validation is None or y_validation is None:
             raise IOError()
+        '''
+        # at lr of 0.0001 for sd and 0.001 for zc
+        # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
+        # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
+        '''
+        
+    def _fit(self,X_train,y_train,X_validation,y_validation,**kwargs):
+        if X_validation is None or y_validation is None:
+            raise IOError()
 
-        train_inds = np.random.permutation(len(y_train))
-        X_train = X_train[train_inds,:]
-        y_train = y_train[train_inds]
-
-        sd_opt = Adam(lr=0.000001)
+        #sd_opt = Adam(lr=0.000001)
+        sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.0001)
+        zc_opt = SGD(lr=0.001) # after about 10 epoch swich to lr of 0.0001 below
+        #zc_opt = optimizers.Nadam(lr=0.0001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
-        
+
         self.SE.trainable = True
         
         info_list = []
@@ -211,11 +218,28 @@ class DisentangleModel(object):
             with open(self.history_path,"r") as f:
                 old_info_list = yaml.load(f.read())
 
+        reduce_lr = callbacks.ReduceLROnPlateau(
+                        monitor='val_loss', factor=0.2,
+                        patience=5, mode='min')
+        reduce_lr.on_train_begin()                
+        reduce_lr.model = self.ZC
+        
+        early_stop = callbacks.EarlyStopping(
+                monitor='val_loss', mode='min',
+                        min_delta=0, patience=10)
+        early_stop.on_train_begin()                
+        early_stop.model = self.ZC
+
+        
         epoch_num = 2000
         batch_size = 64
         
         for epoch in range(epoch_num):
-                        
+            
+            train_inds = np.random.permutation(len(y_train))
+            X_train = X_train[train_inds,:]
+            y_train = y_train[train_inds]
+            
             sd_loss_list = []
             zc_loss_list = []
             
@@ -268,7 +292,16 @@ class DisentangleModel(object):
             
             with open(self.history_path, "w") as f:
                 f.write(yaml.dump(info_list))
-        
+            
+            reduce_lr.on_epoch_end(epoch,logs=info)
+            early_stop.on_epoch_end(epoch,logs=info)
+            
+            print('!!lr',reduce_lr.model.optimizer.lr.eval(),reduce_lr.wait)
+            print('!!es',early_stop.stopped_epoch,early_stop.wait)
+            
+            if early_stop.stopped_epoch!=0 and early_stop.stopped_epoch <= epoch:
+                break
+                
         self.load()
 
     def predict(self,X,y_true=None):
@@ -276,7 +309,7 @@ class DisentangleModel(object):
             self.load()
 
         y_pred = self.ZC.predict(X)[:,-1]
-
+        y_pred = np.expand_dims(y_pred,axis=-1)
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)

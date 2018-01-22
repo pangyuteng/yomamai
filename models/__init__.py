@@ -13,3 +13,6 @@ from . import vae
 from . import moddisengan
 from . import tsne
 from . import tsne_simple
+from . import simple
+from . import simplekfold
+from . import tsne_simplekfold

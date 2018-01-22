@@ -97,11 +97,11 @@ def get_upstreams():
     e = unit0(f_in,1024,axis=mode,drop=dropout_rate)
     e = unit0(e,128,axis=mode,drop=dropout_rate)
     e = unit0(e,64,axis=mode,drop=dropout_rate)
-    e = unit1(e,8,axis=mode,drop=dropout_rate,activation='sigmoid')
+    e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
     z = unit0(f_in,4,axis=mode,drop=dropout_rate)
-    z = unit1(z,4,axis=mode,drop=dropout_rate,activation='sigmoid')
+    z = unit1(z,4,axis=mode,drop=dropout_rate,activation='relu')
         
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)

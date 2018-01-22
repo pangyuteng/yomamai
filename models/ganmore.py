@@ -20,6 +20,7 @@ from keras.models import Sequential
 from keras.layers.core import Dropout, Activation
 from keras import layers
 from keras.optimizers import SGD, Adam, RMSprop
+from keras import optimizers
 from keras.utils import np_utils
 
 from keras.models import Model
@@ -33,6 +34,9 @@ from keras.layers import PReLU
 
 import glob
 import argparse
+
+import tensorflow as tf
+sess = tf.InteractiveSession()
 
 
 class PlotLoss(callbacks.History):
@@ -68,43 +72,23 @@ def block(m,node_num=[32,32,16],dropout_rate=0.0,mode=-1,cons=False):
     return m
 
 
-
-
 def get_aec(
     input_shape=50,
     mode = -1,
     dropout_rate=0.3):
-    init_dropout_rate=0.1
     f_in = Input(shape=(input_shape,))
-    e = Dropout(init_dropout_rate)(f_in)
-    e = Dense(1024)(e)
+    e = Dense(32)(f_in)
     e = BatchNormalization(axis=mode)(e)
     e = LeakyReLU()(e)
     e = Dropout(dropout_rate)(e)
-    e = Dense(128)(e)
+    e = Dense(8)(e)
     e = BatchNormalization(axis=mode)(e)
     e = LeakyReLU()(e)
     e = Dropout(dropout_rate)(e)
-    e = Dense(64)(e)
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    e = Dense(32)(e) 
-    e = BatchNormalization(axis=mode)(e)
-    e = LeakyReLU()(e)
-    e = Dropout(dropout_rate)(e)
-    d = Dense(64)(e)
+    d = Dense(32)(e)
     d = BatchNormalization(axis=mode)(d)
     d = LeakyReLU()(d)
     d = Dropout(dropout_rate)(d)    
-    d = Dense(128)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)
-    d = Dense(1024)(d)
-    d = BatchNormalization(axis=mode)(d)
-    d = LeakyReLU()(d)
-    d = Dropout(dropout_rate)(d)
     d = Dense(input_shape+1)(d)
     f_out = Activation('sigmoid')(d)
     # via dimension reduction followed by reconstruction
@@ -115,34 +99,23 @@ def get_aec(
     decoder = Model(inputs=f_in, outputs=f_out)
     return encoder, decoder
 
-# we 
-
-def get_res(
-    input_shape=8,
-    dropout_rate=0.3,):
-        
-    f_in = Input(shape=(input_shape,))
-    m=block(f_in,node_num=[32,32,8],dropout_rate=dropout_rate)
-    m=block(m,node_num=[32,32,8],dropout_rate=dropout_rate)
-    m=block(m,node_num=[16],dropout_rate=dropout_rate)
-    m=block(m,node_num=[16],dropout_rate=dropout_rate)
-    m = Dense(1)(m)
-    f_out = Activation('sigmoid')(m)
-    model = Model(inputs=f_in, outputs=f_out)
-    return model
 
 def get_discriminator(
     input_shape=51,
     dropout_rate=0.3,):
-        
+    mode = -1
     f_in = Input(shape=(input_shape,))
-    m=block(f_in,node_num=[64,64,32],dropout_rate=dropout_rate)
-    m=block(m,node_num=[32,32,8],dropout_rate=dropout_rate)
-    m=block(m,node_num=[32,32,8],dropout_rate=dropout_rate)
-    m=block(m,node_num=[16],dropout_rate=dropout_rate)
-    m=block(m,node_num=[16],dropout_rate=dropout_rate)
-    m = Dense(1)(m)
-    f_out = Activation('sigmoid')(m)
+    
+    e = Dense(51)(f_in)
+    e = BatchNormalization(axis=mode)(e)
+    e = LeakyReLU()(e)
+    e = Dropout(dropout_rate)(e)
+    e = Dense(32)(e)
+    e = BatchNormalization(axis=mode)(e)
+    e = LeakyReLU()(e)
+    e = Dropout(dropout_rate)(e)
+    e = Dense(1)(e)
+    f_out = Activation('sigmoid')(e)
     model = Model(inputs=f_in, outputs=f_out)
     return model
 
@@ -181,7 +154,7 @@ class GanMoreModel(object):
     def _load(self):
         with open(self.history_path, "r") as f:
             history = yaml.load(f.read())
-        epoch = history[np.argmin([x['decoder_val_loss'] for x in history])]['epoch']
+        epoch = history[np.argmin([x['val_loss'] for x in history])]['epoch']
         
         self.gan.load_weights(self.gan_weight_path(epoch))
         self.discr.load_weights(self.discr_weight_path(epoch))
@@ -203,15 +176,29 @@ class GanMoreModel(object):
 
         loss = 'mse' #<-- mse likely sucks
         
-        dec_opt = Adam(lr=0.0001)
+        dec_opt = optimizers.Nadam(lr=0.00001)
         self.decoder.compile(loss=loss, optimizer=dec_opt)
 
-        stacked_opt = Adam(lr=0.0001)
+        stacked_opt = optimizers.Nadam(lr=0.000001)
         self.gan.compile(loss='binary_crossentropy', optimizer=stacked_opt)
         
-        discr_opt = Adam(lr=0.0002)
+        discr_opt = optimizers.Nadam(lr=0.00001)
         self.discr.compile(loss='binary_crossentropy', optimizer=discr_opt)
         self.discr.trainable = True
+        
+        
+        reduce_lr = callbacks.ReduceLROnPlateau(
+                        monitor='val_loss', factor=0.2,
+                        patience=5, mode='min')
+        reduce_lr.on_train_begin()                
+        reduce_lr.model = self.decoder
+        
+        early_stop = callbacks.EarlyStopping(
+                monitor='val_loss', mode='min',
+                        min_delta=0, patience=10)
+        early_stop.on_train_begin()                
+        early_stop.model = self.decoder
+
         
         info_list = []
         old_info_list = []
@@ -243,7 +230,7 @@ class GanMoreModel(object):
                 #c+=1
                 bdecOut = self.decoder.predict(bX_train, verbose=0)
 
-                added_to_y = by_train+np.expand_dims(0.5*(np.random.random(by_train.shape[0])-0.5),axis=-1)
+                added_to_y = by_train+np.expand_dims(0.2*(np.random.random(by_train.shape[0])-0.5),axis=-1)
                 # ^^ spice up the y to be 0+/-0.25 or 1+/-0.25
                 X = np.concatenate((added_to_y,bdecOut),axis=0).astype('float')
                 
@@ -270,13 +257,13 @@ class GanMoreModel(object):
                 
             pred = self.decoder.predict(X_validation)
             pred = pred[:,-1].squeeze()
-            decoder_val_loss = metrics.log_loss(y_validation,pred)
+            val_loss = metrics.log_loss(y_validation,pred)
             info = {
                 'epoch':epoch,
                 'd_loss':float(np.mean(d_loss_list)),
                 'g_loss':float(np.mean(g_loss_list)),
                 's_loss':float(np.mean(s_loss_list)),
-                'decoder_val_loss': float(decoder_val_loss),
+                'val_loss': float(val_loss),
             }
             info_list.append(info)
             print(info)
@@ -285,6 +272,15 @@ class GanMoreModel(object):
             self.gan.save_weights(self.gan_weight_path(epoch),True)
             with open(self.history_path, "w") as f:
                 f.write(yaml.dump(info_list))
+                
+            reduce_lr.on_epoch_end(epoch,logs=info)
+            early_stop.on_epoch_end(epoch,logs=info)
+            
+            print('!!lr',reduce_lr.model.optimizer.lr.eval(),reduce_lr.wait)
+            print('!!es',early_stop.stopped_epoch,early_stop.wait)
+            
+            if early_stop.stopped_epoch!=0 and early_stop.stopped_epoch <= epoch:
+                break
         
         
         self.load()

@@ -1,8 +1,4 @@
-
-'''
-Krauss, Christopher, Xuan Anh Do, and Nicolas Huck. "Deep neural networks, gradient-boosted trees, random forests: Statistical arbitrage on the S&P 500." European Journal of Operational Research 259.2 (2017): 689-702.
-https://www.econstor.eu/bitstream/10419/130166/1/856307327.pdf
-'''
+import traceback
 import numpy as np
 from sklearn import metrics
 
@@ -52,19 +48,43 @@ class PlotLoss(callbacks.History):
         # store history
         pd.DataFrame(self.history_dict).to_csv(self.fname,index=False)
 
+def unit0(input,
+          num,
+          drop=0.3,
+          axis=-1,
+          kernel_regularizer=regularizers.l2(10e-8),
+          activity_regularizer=regularizers.l1(10e-8),):
+    e = Dense(num,
+            kernel_regularizer=kernel_regularizer,
+            activity_regularizer=activity_regularizer,
+        )(input)#l1 l2?
+    e = BatchNormalization(axis=axis)(e)
+    e = PReLU()(e)
+    e = Dropout(drop)(e)
+    return e
+
+def unit1(input,
+          num,
+          drop=0.3,
+          axis=-1,
+          activation='sigmoid',
+          kernel_regularizer=regularizers.l2(10e-8),
+          activity_regularizer=regularizers.l1(10e-8),):
+    e = Dense(num,
+            kernel_regularizer=kernel_regularizer,
+            activity_regularizer=activity_regularizer,
+        )(input)
+    e = BatchNormalization(axis=axis)(e)
+    e = Activation(activation)(e)
+    return e
+
 def get_simple_nn():
-    m_in = Input(shape=(52,))
-    drop_out=0.3
-    m = Dense(52,)(m_in)
-    m = BatchNormalization(axis=-1)(m)
-    m = Activation('relu')(m)
-    m = Dropout(drop_out)(m)
-    m = Dense(52,)(m)
-    m = BatchNormalization(axis=-1)(m)
-    m = Activation('relu')(m)
-    m = Dropout(drop_out)(m)
-    m = Dense(2,)(m)
-    m_out = Activation('softmax')(m)
+    m_in = Input(shape=(74,))
+    mode = -1
+    dropout_rate = 0.3
+    m = unit0(m_in,32,axis=mode,drop=dropout_rate)
+    m = unit0(m,32,axis=mode,drop=dropout_rate)
+    m_out = unit1(m,2,axis=mode,drop=dropout_rate,activation='softmax')
     model = Model(inputs=m_in, outputs=m_out)
     return model
 
@@ -84,11 +104,11 @@ class TsneSimple(object):
         self.tsne_weight_file = os.path.join(THIS_DIR,self.fdname,'tsne_{o:03d}_{p:03d}.hdf5')
         
         high_dims=50
-        self.tsne_list = [(2,5),(2,10),(2,15),(2,30),(3,15),]
+        self.tsne_list = [(3,5),(3,15),(3,30),(5,5),(5,15),(5,30)]
         self.tsne = {}
         for key in self.tsne_list:
-            o,p = key
-            self.tsne[key] = Parametric_tSNE(high_dims, o, p, all_layers=None)
+            num_outputs,perplexity = key
+            self.tsne[key] = Parametric_tSNE(high_dims, num_outputs, perplexity, dropout=0.3, all_layers=None)
 
         
         self.snn_weight_file = os.path.join(THIS_DIR,self.fdname,'snn_{epoch:03d}.hdf5')
@@ -125,11 +145,15 @@ class TsneSimple(object):
         X_train = X_train[train_inds,:]
         y_train = y_train[train_inds,:]
         
-        batch_size = 64
-        for key in self.tsne_list:
-            o,p = key
-            self.tsne[key].fit(X_train,verbose=1,epochs=2,)
-            self.tsne[key].save_model(self.tsne_weight_file.format(o=o,p=p))
+        try:
+            self._load_tsne()
+        except:
+            traceback.print_exc()
+            batch_size = 64
+            for key in self.tsne_list:
+                o,p = key
+                self.tsne[key].fit(X_train,verbose=1,epochs=5,)
+                self.tsne[key].save_model(self.tsne_weight_file.format(o=o,p=p))
         
         x_list = [X_train]
         for key in self.tsne_list:
@@ -144,12 +168,15 @@ class TsneSimple(object):
         
         snn_callbacks = [
             PlotLoss(self.snn_csv),
-            callbacks.EarlyStopping(monitor='val_loss', patience=5),
+            callbacks.ReduceLROnPlateau(monitor='val_loss',
+                    factor=0.2,patience=5, mode='min'),
+            callbacks.EarlyStopping(monitor='val_loss', patience=10),
             callbacks.ModelCheckpoint(self.snn_weight_file),
         ]
         
         batch_size=64
-        opt = optimizers.SGD(lr=0.001, clipnorm=0.9)
+        #opt = optimizers.SGD(lr=0.001, clipnorm=0.9)
+        opt = optimizers.Nadam(lr=0.0001)
         self.snn.compile(loss='binary_crossentropy',optimizer=opt)
         self.snn.fit(X_train,y_train,
                      batch_size=batch_size,epochs=200,
@@ -169,7 +196,8 @@ class TsneSimple(object):
         X = np.concatenate(x_list,axis=-1)
         
         y_pred = self.snn.predict(X)[:,1]
-
+        y_pred = np.expand_dims(y_pred,axis=-1)
+        
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)

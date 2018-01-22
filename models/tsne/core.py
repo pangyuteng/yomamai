@@ -214,7 +214,7 @@ class Parametric_tSNE(object):
     
     def __init__(self, num_inputs, num_outputs, perplexity,
                  alpha=1.0, optimizer='adam', batch_size=64, all_layers=None,
-                 do_pretrain=True, seed=0):
+                 do_pretrain=True, seed=0, dropout=None):
         """
 
         num_inputs : int
@@ -258,6 +258,9 @@ class Parametric_tSNE(object):
             for lsize in all_layer_sizes[2:-1]:
                 cur_layer = layers.Dense(lsize, activation='sigmoid', kernel_initializer='glorot_uniform')
                 all_layers.append(cur_layer)
+                
+                if dropout is not None:
+                    all_layers.append(layers.Dropout(dropout))
             
             all_layers.append(layers.Dense(num_outputs, activation='linear', kernel_initializer='glorot_uniform'))
             

@@ -4,7 +4,7 @@ import socket
 
 if socket.gethostname() == 'gtx':
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    os.environ['OMP_NUM_THREADS'] = '1'
+    #os.environ['OMP_NUM_THREADS'] = '1'
 
 import numpy as np
 np.random.seed(69)
@@ -17,28 +17,29 @@ from cfg import cfg
 from numerapi.numerapi import NumerAPI
 import models
 from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
-import opt
+from models import opt
 
 model_list = [
-    #('aec',models.aec.AecModel,dict(istrain=True)),
-    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=True)),
+    #('aec',models.aec.AecModel,dict(istrain=False)),
+    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
     #inprogress#just bad# still testing#('krauss',models.krauss.KraussModel,dict(istrain=True)),
-    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=False)),
+    #('ganmore',models.ganmore.GanMoreModel,dict(istrain=True)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
     #('disentangle',models.disentangle.DisentangleModel,dict(istrain=False)),
-    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
+    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=False)),
     #('vae',models.vae.VaeModel,dict(istrain=True)),
     #('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
-    ('tsnesimple',models.tsne_simple.TsneSimple,dict(istrain=True)),
-] #ganmore xg aec
-'''
-    #('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=False)),
-    ### try to categorize training set to weight more on those alike test set.
+    #('tsnesimple',models.tsne_simple.TsneSimple,dict(istrain=False)),
+    ('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=True)),
+    #('simple',models.simple.Simple,dict(istrain=True)),
+    #('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
     
-'''
+] 
+
+
 def main():
 
     # api instance
