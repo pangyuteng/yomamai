@@ -34,30 +34,48 @@ def get_data(data_file_path):
     return X, Y, ids, eras, datatypes
 
     
-def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1):
+def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1,
+                          index_dict={},):
     
     X,Y,ids,eras,datatypes = get_data(data_file_path)
     print(type(X),type(Y),type(ids),type(eras))
 
-    X_train, X_test, Y_train, Y_test = ([],[],[],[])
+    X_train, X_test, Y_train, Y_test,ind_train,ind_test = ([],[],[],[],[],[])
+    
     for era in list(np.unique(eras)):
         if era == 'eraX':
             continue
         inds = np.where(eras==era)[0]
-        sX_train, sX_test, sY_train, sY_test = cross_validation.train_test_split(
-            np.take(X,inds,axis=0),np.take(Y,inds,axis=0),
-            test_size=test_size,
-            random_state=random_state)
-
-        X_train.append(sX_train)
-        X_test.append(sX_test)
-        Y_train.append(sY_train)
-        Y_test.append(sY_test)
-
+        
+        kf = cross_validation.KFold(inds.shape[0], n_folds=5,shuffle=True,random_state=random_state)
+        for _train_index, _test_index in kf:
+            
+            train_index = inds[_train_index]
+            test_index = inds[_test_index]
+            
+            sX_train = X.values[train_index,:]
+            sX_test =  X.values[test_index,:]
+            
+            sY_train = Y.values[train_index]
+            sY_test =  Y.values[test_index]
+            
+            X_train.append(sX_train)
+            X_test.append(sX_test)
+            
+            Y_train.append(sY_train)
+            Y_test.append(sY_test)
+            
+            ind_train.append(train_index)
+            ind_test.append(test_index)
+            
+            break
+            
     X_train = np.concatenate(X_train,axis=0).astype('float')
     X_test = np.concatenate(X_test,axis=0).astype('float')
     Y_train = np.concatenate(Y_train,axis=0).astype('float')
     Y_test = np.concatenate(Y_test,axis=0).astype('float')
+    index_dict['train']= np.concatenate(ind_train,axis=0)
+    index_dict['validation']= np.concatenate(ind_test,axis=0)
     
     print(X_train.shape,Y_train.shape,X_test.shape,Y_test.shape)
     return X_train,Y_train,X_test,Y_test

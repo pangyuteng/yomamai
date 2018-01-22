@@ -21,7 +21,7 @@ from models import opt
 
 model_list = [
     #('aec',models.aec.AecModel,dict(istrain=False)),
-    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
+    ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
@@ -33,10 +33,9 @@ model_list = [
     #('vae',models.vae.VaeModel,dict(istrain=True)),
     #('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
     #('tsnesimple',models.tsne_simple.TsneSimple,dict(istrain=False)),
-    ('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=True)),
+    ('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=False)),
     #('simple',models.simple.Simple,dict(istrain=True)),
     #('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
-    
 ] 
 
 
@@ -91,19 +90,21 @@ def main():
         inst = clsf()
         ##if hasattr(inst,'pretrain'):
         ##    inst.pretrain(**pretrain_params)
-        inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val,X_test=X_test,sample_weight=train_sample_weight)
+        inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val,
+                 X_test=X_test,sample_weight=train_sample_weight)
 
     # predict train
     y_pred_list = []
     for name,clsf,params in model_list:
         inst = clsf()
-        y_pred,logloss = inst.predict(X_train,y_true=y_train)
+        # optimize with validation set
+        y_pred,logloss = inst.predict(X_val,y_true=y_val)
         print('logloss',name,logloss)
-        y_pred_list.append(y_pred)
+        y_pred_list.append(y_pred.squeeze())
         print(y_pred.shape)
 
     # optimize with train set
-    opt_weights = opt.opt_weights(y_pred_list,y_train)
+    opt_weights = opt.opt_weights(y_pred_list,y_val)
     np.save('opt_weights.pkl',opt_weights)
     
     # prep for testing
@@ -124,7 +125,7 @@ def main():
     for name,clsf,params in model_list:
         inst = clsf()
         y_pred,_ = inst.predict(X_test.values)
-        y_pred_list.append(y_pred)
+        y_pred_list.append(y_pred.squeeze())
         print('logloss',name,opt.log_loss_func([1.],[y_pred[val_inds]],y_test[val_inds]))
 
     # optimize prediction

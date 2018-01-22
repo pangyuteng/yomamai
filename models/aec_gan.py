@@ -300,7 +300,7 @@ class AecAdvModel(object):
 
         eX = self.encoder.predict(X)
         y_pred = self.res.predict(eX)
-
+        
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)

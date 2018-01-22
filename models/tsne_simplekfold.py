@@ -11,6 +11,7 @@ import pandas as pd
 import sklearn
 from matplotlib import pyplot as plt
 from sklearn import cross_validation, metrics
+from sklearn.model_selection import KFold
 
 from keras.datasets import mnist
 from keras.models import Sequential
@@ -30,6 +31,7 @@ from keras import regularizers
 from keras.layers import PReLU
 
 from .tsne import Parametric_tSNE
+from . import opt
 
 import glob
 import argparse
@@ -122,7 +124,6 @@ class TsneSimpleKfold(object):
     def _load_snn(self):
         self.snn={}
         for n in range(self.fold_num):
-            print(n)
             self.snn_weight_file = os.path.join(THIS_DIR,self.fdname,str(n),'snn_{epoch:03d}.hdf5')
             self.snn_csv = os.path.join(THIS_DIR,self.fdname,str(n),'snn.csv')
             _results=pd.read_csv(self.snn_csv)
@@ -145,6 +146,7 @@ class TsneSimpleKfold(object):
             os.makedirs(os.path.dirname(self.w_file))
         
         y_train = np_utils.to_categorical(y_train)
+        y_validation_org = y_validation
         y_validation = np_utils.to_categorical(y_validation)
         
         train_inds = np.random.permutation(len(y_train))
@@ -184,20 +186,22 @@ class TsneSimpleKfold(object):
             _y_train = y_train[train_index]
             self._fit(n,_X_train,_y_train,X_validation,y_validation)
             n+=1
-            
+        
         # optimize and save weights
         pred_list = []
         for n in range(self.fold_num):
             y_pred=self.snn[n].predict(X_validation)[:,1]
             pred_list.append(y_pred.squeeze())
     
-        self.w = opt.opt_weights(pred_list,y_validation)
+        self.w = opt.opt_weights(pred_list,y_validation_org)
         np.save(self.w_file, self.w) 
         
         self.load()
         
     def _fit(self,current_fold_num,X_train,y_train,X_validation,y_validation):
             
+        if os.path.exists(os.path.dirname(self.snn_csv)) is False:
+            os.makedirs(os.path.dirname(self.snn_csv))
 
         train_inds = np.random.permutation(len(y_train))
         X_train = X_train[train_inds,:]
@@ -214,14 +218,13 @@ class TsneSimpleKfold(object):
         batch_size=64
         #opt = optimizers.SGD(lr=0.001, clipnorm=0.9)
         opt = optimizers.Nadam(lr=0.0001)
-        self.snn.compile(loss='binary_crossentropy',optimizer=opt)
-        self.snn.fit(X_train,y_train,
+        self.snn[current_fold_num].compile(loss='binary_crossentropy',optimizer=opt)
+        self.snn[current_fold_num].fit(X_train,y_train,
                      batch_size=batch_size,epochs=200,
                      validation_data=(X_validation,y_validation),
                      callbacks=snn_callbacks,
                     )
         
-        self.load()
 
     def predict(self,X,y_true=None):
         if self.is_trained is False:
@@ -243,7 +246,6 @@ class TsneSimpleKfold(object):
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)
-            print('logloss %r' % logloss)
-
+        
         return y_pred, logloss
 

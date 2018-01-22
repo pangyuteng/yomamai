@@ -94,14 +94,13 @@ def get_upstreams():
     f_in = Input(shape=(input_shape,))
     
     # specific encoder
-    e = unit0(f_in,1024,axis=mode,drop=dropout_rate)
-    e = unit0(e,128,axis=mode,drop=dropout_rate)
-    e = unit0(e,64,axis=mode,drop=dropout_rate)
+    e = unit0(f_in,64,axis=mode,drop=dropout_rate)
+    e = unit0(e,32,axis=mode,drop=dropout_rate)
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
-    z = unit0(f_in,4,axis=mode,drop=dropout_rate)
-    z = unit1(z,4,axis=mode,drop=dropout_rate,activation='relu')
+    z = unit0(f_in,8,axis=mode,drop=dropout_rate)
+    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='relu')
         
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
@@ -120,14 +119,13 @@ def get_downstreams(SE,ZE):
     m = Concatenate(axis=-1)([se,ze])
     
     # specific discriminator    
-    d = unit0(m,64,axis=mode,drop=dropout_rate)
-    d = unit0(d,128,axis=mode,drop=dropout_rate)
-    d = unit0(d,1024,axis=mode,drop=dropout_rate)
+    d = unit0(m,32,axis=mode,drop=dropout_rate)
+    d = unit0(d,64,axis=mode,drop=dropout_rate)
     d = unit1(d,50,axis=mode,drop=dropout_rate,activation='sigmoid')
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    c = unit0(ze,4,axis=mode,drop=dropout_rate)
+    c = unit0(ze,8,axis=mode,drop=dropout_rate)
     c = unit1(c,1,axis=mode,drop=dropout_rate,activation='sigmoid')
     ZC = Model(inputs=I, outputs=c)
 

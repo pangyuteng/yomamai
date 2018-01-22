@@ -49,8 +49,14 @@ def opt_func(weights,pred_list,y_test):
 def log_loss_func(weights,pred_list,y_test):
     ''' scipy minimize will pass the weights as a numpy array '''
     final_prediction = 0
-    for weight, pred in zip(weights, pred_list):
-        final_prediction += weight*pred
+    
+    pred_list = np.array(pred_list).squeeze()
+    y_test = np.array(y_test)
+
+    if len(pred_list.shape)==1:
+        final_prediction = pred_list
+    else:
+        final_prediction =np.dot(weights,pred_list)
     
     logloss = metrics.log_loss(y_test, final_prediction)
     logloss = np.nan_to_num(logloss)
@@ -65,8 +71,13 @@ def opt_weights(pred_list,y_test):
     #the algorithms need a starting value, right not we chose 0.5 for all weights
     #its better to choose many random starting points and run minimize a few times
     #starting_values = [1.0/len(pred_list)]*len(pred_list)
-    pred_list = np.array(pred_list)
+    pred_list = np.array(pred_list).squeeze()
+    
+    if len(pred_list.shape)==1:
+        return np.array([1.0])
+    
     y_test = np.array(y_test)
+    print('!!',pred_list.shape,y_test.shape)
     ret = pred_list - y_test
     ret = ret.T
     candidates = []

@@ -201,7 +201,6 @@ class TsneSimple(object):
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)
-            print('logloss %r' % logloss)
 
         return y_pred, logloss
 
