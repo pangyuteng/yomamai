@@ -8,9 +8,11 @@ from . import krauss
 from . import ganmore
 from . import sk_tpot
 from . import disentangle
+from . import disentangle_kfold
 from . import disentanglegan
 from . import vae
 from . import moddisengan
+from . import moddisengan2
 from . import tsne
 from . import tsne_simple
 from . import simple

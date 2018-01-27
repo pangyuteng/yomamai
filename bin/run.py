@@ -21,19 +21,21 @@ from models import opt
 
 model_list = [
     #('aec',models.aec.AecModel,dict(istrain=False)),
-    ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
+    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
     #inprogress#just bad# still testing#('krauss',models.krauss.KraussModel,dict(istrain=True)),
     #('ganmore',models.ganmore.GanMoreModel,dict(istrain=True)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
-    #('disentangle',models.disentangle.DisentangleModel,dict(istrain=False)),
-    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=False)),
-    #('vae',models.vae.VaeModel,dict(istrain=True)),
+    #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
+    ('disentangle_kfold',models.disentangle_kfold.DisentangleKfoldModel,dict(istrain=True)),
+    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
     #('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
+    #('disentangle2',models.moddisengan2.DisentangleModel,dict(istrain=True)),
+    #('vae',models.vae.VaeModel,dict(istrain=True)),
     #('tsnesimple',models.tsne_simple.TsneSimple,dict(istrain=False)),
-    ('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=False)),
+    #('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=False)),
     #('simple',models.simple.Simple,dict(istrain=True)),
     #('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
 ] 
@@ -58,13 +60,17 @@ def main():
     shrink_test = None
     print('====================')
     # get data 
-    X_train_tr,y_train_tr,X_val_tr,y_val_tr = get_data_era_balanced(data_files[-1]['trainpath'])
-    X_train_te,y_train_te,X_val_te,y_val_te = get_data_era_balanced(data_files[-1]['testpath'])
+    tr_eras_dict = {}
+    X_train_tr,y_train_tr,X_val_tr,y_val_tr = get_data_era_balanced(data_files[-1]['trainpath'],eras_dict=tr_eras_dict)
+    te_eras_dict = {}
+    X_train_te,y_train_te,X_val_te,y_val_te = get_data_era_balanced(data_files[-1]['testpath'],eras_dict=te_eras_dict)
     X_train = np.concatenate([X_train_tr,X_train_te],axis=0)
     y_train = np.concatenate([y_train_tr,y_train_te],axis=0)
+    eras_train = np.concatenate([tr_eras_dict['train'],te_eras_dict['train']],axis=0)
     X_val = np.concatenate([X_val_tr,X_val_te],axis=0)
     y_val = np.concatenate([y_val_tr,y_val_te],axis=0)
-
+    eras_val = np.concatenate([tr_eras_dict['validation'],te_eras_dict['validation']],axis=0)
+    
     X_test,y_test,_,_,_=get_data(data_files[-1]['testpath'])
 
     # for testing
@@ -91,7 +97,10 @@ def main():
         ##if hasattr(inst,'pretrain'):
         ##    inst.pretrain(**pretrain_params)
         inst.fit(X_train,y_train,X_validation=X_val,y_validation=y_val,
-                 X_test=X_test,sample_weight=train_sample_weight)
+                 X_test=X_test,
+                 eras_train=eras_train,
+                 eras_validation=eras_val,
+                 sample_weight=train_sample_weight)
 
     # predict train
     y_pred_list = []

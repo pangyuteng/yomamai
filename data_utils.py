@@ -35,12 +35,12 @@ def get_data(data_file_path):
 
     
 def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1,
-                          index_dict={},):
+                          index_dict={},eras_dict={}):
     
     X,Y,ids,eras,datatypes = get_data(data_file_path)
     print(type(X),type(Y),type(ids),type(eras))
 
-    X_train, X_test, Y_train, Y_test,ind_train,ind_test = ([],[],[],[],[],[])
+    X_train, X_test, Y_train, Y_test,ind_train,ind_test,eras_train,eras_test = ([],[],[],[],[],[],[],[])
     
     for era in list(np.unique(eras)):
         if era == 'eraX':
@@ -68,6 +68,9 @@ def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1,
             ind_train.append(train_index)
             ind_test.append(test_index)
             
+            eras_train.append(eras[train_index])
+            eras_test.append(eras[test_index])
+            
             break
             
     X_train = np.concatenate(X_train,axis=0).astype('float')
@@ -76,7 +79,8 @@ def get_data_era_balanced(data_file_path,random_state=1,test_size = 0.1,
     Y_test = np.concatenate(Y_test,axis=0).astype('float')
     index_dict['train']= np.concatenate(ind_train,axis=0)
     index_dict['validation']= np.concatenate(ind_test,axis=0)
-    
+    eras_dict['train']= np.concatenate(eras_train,axis=0)
+    eras_dict['validation']= np.concatenate(eras_test,axis=0)
     print(X_train.shape,Y_train.shape,X_test.shape,Y_test.shape)
     return X_train,Y_train,X_test,Y_test
     #return X_train[:1000,:],X_test[:100,:],Y_train[:1000,:],Y_test[:100,:]

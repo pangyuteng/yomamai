@@ -53,8 +53,8 @@ class PlotLoss(callbacks.History):
 
 def unit0(input,num,
           drop=0.3,axis=-1,
-          kernel_regularizer=regularizers.l2(10e-8),
-          activity_regularizer=regularizers.l1(10e-8),):
+          kernel_regularizer=None, #regularizers.l2(10e-5),
+          activity_regularizer=None): #regularizers.l1(10e-5),):
     e = Dense(num,
             kernel_regularizer=kernel_regularizer,
             activity_regularizer=activity_regularizer,
@@ -68,8 +68,8 @@ def unit1(input,num,
           drop=0.3,
           axis=-1,
           activation='sigmoid',
-          kernel_regularizer=regularizers.l2(10e-8),
-          activity_regularizer=regularizers.l1(10e-8),):
+          kernel_regularizer=None, #regularizers.l2(10e-5),
+          activity_regularizer=None): #regularizers.l1(10e-5),):
     e = Dense(num,
             kernel_regularizer=kernel_regularizer,
             activity_regularizer=activity_regularizer,
@@ -88,14 +88,13 @@ def get_upstreams():
     f_in = Input(shape=(input_shape,))
     
     # specific encoder
-    e = unit0(f_in,1024,axis=mode,drop=dropout_rate)
-    e = unit0(e,128,axis=mode,drop=dropout_rate)
-    e = unit0(e,64,axis=mode,drop=dropout_rate)
+    e = unit0(f_in,64,axis=mode,drop=dropout_rate)
+    e = unit0(e,32,axis=mode,drop=dropout_rate)
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
-    z = unit0(f_in,4,axis=mode,drop=dropout_rate)
-    z = unit1(z,4,axis=mode,drop=dropout_rate,activation='relu')
+    z = unit0(f_in,8,axis=mode,drop=dropout_rate)
+    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='relu')
         
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
@@ -114,14 +113,13 @@ def get_downstreams(SE,ZE):
     m = Concatenate(axis=-1)([se,ze])
     
     # specific discriminator    
-    d = unit0(m,64,axis=mode,drop=dropout_rate)
-    d = unit0(d,128,axis=mode,drop=dropout_rate)
-    d = unit0(d,1024,axis=mode,drop=dropout_rate)
+    d = unit0(m,32,axis=mode,drop=dropout_rate)
+    d = unit0(d,64,axis=mode,drop=dropout_rate)
     d = unit1(d,50,axis=mode,drop=dropout_rate,activation='sigmoid')
     SD = Model(inputs=I,outputs=d)
     
     # unspecific classifier
-    c = unit0(ze,4,axis=mode,drop=dropout_rate)
+    c = unit0(ze,8,axis=mode,drop=dropout_rate)
     c = unit1(c,1,axis=mode,drop=dropout_rate,activation='sigmoid')
     ZC = Model(inputs=I, outputs=c)
 
@@ -159,7 +157,7 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if os.path.exists(os.path.join(THIS_DIR,FDNAME)) is False:
     os.makedirs(os.path.join(THIS_DIR,FDNAME))
 
-class ModDisentangleModel(object):
+class DisentangleModel(object):
     def __init__(self,this_dir=THIS_DIR,fdname=FDNAME):
         self.is_trained = False
         self.this_dir = this_dir
@@ -191,24 +189,16 @@ class ModDisentangleModel(object):
     def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None,**kwargs):
         if X_validation is None or y_validation is None:
             raise IOError()
-        '''
-        # at lr of 0.0001 for sd and 0.001 for zc
-        # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
-        # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
-        '''
+            
         
-    def _fit(self,X_train,y_train,X_validation,y_validation,**kwargs):
-        if X_validation is None or y_validation is None:
-            raise IOError()
-
-        #sd_opt = Adam(lr=0.000001)
         sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
-        
-        zc_opt = SGD(lr=0.001) # after about 10 epoch swich to lr of 0.0001 below
-        #zc_opt = optimizers.Nadam(lr=0.0001)
+
+        #zc_opt = optimizers.Nadam(lr=0.0001)# very noisy
+        zc_opt = SGD(lr=0.0001) # after about 10 epoch swich to lr of 0.0001 below        
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
 
+        
         self.SE.trainable = True
         
         info_list = []
@@ -217,6 +207,13 @@ class ModDisentangleModel(object):
         if os.path.exists(self.history_path):
             with open(self.history_path,"r") as f:
                 old_info_list = yaml.load(f.read())
+
+
+        reduce_lr_sd = callbacks.ReduceLROnPlateau(
+                        monitor='sd_val_loss', factor=0.2,
+                        patience=5, mode='min')
+        reduce_lr_sd.on_train_begin()                
+        reduce_lr_sd.model = self.SD
 
         reduce_lr = callbacks.ReduceLROnPlateau(
                         monitor='val_loss', factor=0.2,
@@ -236,9 +233,10 @@ class ModDisentangleModel(object):
         
         for epoch in range(epoch_num):
             
-            train_inds = np.random.permutation(len(y_train))
-            X_train = X_train[train_inds,:]
-            y_train = y_train[train_inds]
+            # disable shuffle, too noisy for disentangle.
+            #train_inds = np.random.permutation(len(y_train))
+            #X_train = X_train[train_inds,:]
+            #y_train = y_train[train_inds]
             
             sd_loss_list = []
             zc_loss_list = []
@@ -259,16 +257,32 @@ class ModDisentangleModel(object):
                 print('skipping epoch',len(info_list))
                 continue
 
-            for bX_train,by_train in chunkify(X_train,y_train,batch_size):
-                           
-                sd_loss = self.SD.train_on_batch(bX_train,bX_train)
-                sd_loss_list.append(sd_loss)
-                
-                self.SE.trainable = False
-                for _ in range(3):
-                    zc_loss = self.ZC.train_on_batch(bX_train,by_train)
-                    zc_loss_list.append(zc_loss)
-                self.SE.trainable = True
+            for _bX_train,_by_train in chunkify(X_train,y_train,batch_size):
+                               
+                # train by class 
+                for myclass in [0,1]:
+                    
+                    inds = np.where(_by_train==myclass)
+                    
+                    if len(inds) == 0:
+                        continue
+                        
+                    bX_train = _bX_train[inds,:].squeeze()
+                    by_train = _by_train[inds].squeeze()
+                    
+                    sd_loss = self.SD.train_on_batch(bX_train,bX_train)
+                    sd_loss_list.append(sd_loss)
+                    
+                    self.ZC.trainable = False
+                    notmyclass = 1 - by_train
+                    _zc_loss = self.ZC.train_on_batch(bX_train,notmyclass)
+                    self.ZC.trainable = True
+                    
+                    self.SE.trainable = False
+                    for _ in range(3):
+                        zc_loss = self.ZC.train_on_batch(bX_train,by_train)
+                        zc_loss_list.append(zc_loss)
+                    self.SE.trainable = True
                  
                 
             predZ = self.ZC.predict(X_validation).squeeze()
@@ -292,7 +306,8 @@ class ModDisentangleModel(object):
             
             with open(self.history_path, "w") as f:
                 f.write(yaml.dump(info_list))
-            
+           
+            reduce_lr_sd.on_epoch_end(epoch,logs=info)
             reduce_lr.on_epoch_end(epoch,logs=info)
             early_stop.on_epoch_end(epoch,logs=info)
             

@@ -53,8 +53,8 @@ class PlotLoss(callbacks.History):
 
 def unit0(input,num,
           drop=0.3,axis=-1,
-          kernel_regularizer=regularizers.l2(10e-8),
-          activity_regularizer=regularizers.l1(10e-8),):
+          kernel_regularizer=None, #regularizers.l2(10e-5),
+          activity_regularizer=None): #regularizers.l1(10e-5),):
     e = Dense(num,
             kernel_regularizer=kernel_regularizer,
             activity_regularizer=activity_regularizer,
@@ -68,8 +68,8 @@ def unit1(input,num,
           drop=0.3,
           axis=-1,
           activation='sigmoid',
-          kernel_regularizer=regularizers.l2(10e-8),
-          activity_regularizer=regularizers.l1(10e-8),):
+          kernel_regularizer=None, #regularizers.l2(10e-5),
+          activity_regularizer=None): #regularizers.l1(10e-5),):
     e = Dense(num,
             kernel_regularizer=kernel_regularizer,
             activity_regularizer=activity_regularizer,
@@ -200,8 +200,8 @@ class DisentangleModel(object):
         sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        #zc_opt = SGD(lr=0.001) # after about 10 epoch swich to lr of 0.0001 below
-        zc_opt = optimizers.Nadam(lr=0.0001)
+        #zc_opt = optimizers.Nadam(lr=0.0001)# very noisy
+        zc_opt = SGD(lr=0.0001) # after about 10 epoch swich to lr of 0.0001 below        
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
 
         self.SE.trainable = True
@@ -214,7 +214,7 @@ class DisentangleModel(object):
                 old_info_list = yaml.load(f.read())
 
         reduce_lr = callbacks.ReduceLROnPlateau(
-                        monitor='val_loss', factor=0.2,
+                        monitor='val_loss', factor=0.1,
                         patience=5, mode='min')
         reduce_lr.on_train_begin()                
         reduce_lr.model = self.ZC
@@ -231,9 +231,10 @@ class DisentangleModel(object):
         
         for epoch in range(epoch_num):
             
-            train_inds = np.random.permutation(len(y_train))
-            X_train = X_train[train_inds,:]
-            y_train = y_train[train_inds]
+            # disable shuffle, too noisy for disentangle.
+            #train_inds = np.random.permutation(len(y_train))
+            #X_train = X_train[train_inds,:]
+            #y_train = y_train[train_inds]
             
             sd_loss_list = []
             zc_loss_list = []
