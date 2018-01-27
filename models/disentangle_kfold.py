@@ -153,12 +153,12 @@ class DisentangleKfoldModel(object):
     def _init_nn(self):
         self.nn={}
         for n in range(self.fold_num):
-            
-            se_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,str(n),'se{:03d}.hdf5'.format(x)) 
-            ze_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,str(n),'ze{:03d}.hdf5'.format(x))
-            sd_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,str(n),'sd{:03d}.hdf5'.format(x))
-            zc_weight_path = lambda x: os.path.join(self.this_dir,self.fdname,str(n),'zc{:03d}.hdf5'.format(x))
-            history_path = os.path.join(self.this_dir,self.fdname,str(n),'history.yml')
+            cfn = str(n)
+            se_weight_path = os.path.join(self.this_dir,self.fdname,cfn,'se{:03d}.hdf5').format
+            ze_weight_path = os.path.join(self.this_dir,self.fdname,cfn,'ze{:03d}.hdf5').format
+            sd_weight_path = os.path.join(self.this_dir,self.fdname,cfn,'sd{:03d}.hdf5').format
+            zc_weight_path = os.path.join(self.this_dir,self.fdname,cfn,'zc{:03d}.hdf5').format
+            history_path = os.path.join(self.this_dir,self.fdname,cfn,'history.yml')
 
             if os.path.exists(os.path.dirname(history_path)) is False:
                 os.makedirs(os.path.dirname(history_path))
@@ -166,14 +166,15 @@ class DisentangleKfoldModel(object):
             SE, ZE = get_upstreams()
             SD, ZC = get_downstreams(SE,ZE)
             
-            self.nn[n]= dict(
+            self.nn[n]={}
+            self.nn[n].update(dict(
                 se_weight_path=se_weight_path,
                 ze_weight_path=ze_weight_path,
                 sd_weight_path=sd_weight_path,
                 zc_weight_path=zc_weight_path,
                 history_path=history_path,
                 SE=SE,ZE=ZE,SD=SD,ZC=ZC,
-            )
+            ))
             
     def _load_nn(self):
         
@@ -187,7 +188,7 @@ class DisentangleKfoldModel(object):
             self.nn[n]['ZE'].load_weights(self.nn[n]['ze_weight_path'](epoch))
             self.nn[n]['SD'].load_weights(self.nn[n]['sd_weight_path'](epoch))
             self.nn[n]['ZC'].load_weights(self.nn[n]['zc_weight_path'](epoch))
-
+        
     def load(self):
         self._load_nn()
         self.w=np.load(self.w_file)
@@ -202,16 +203,16 @@ class DisentangleKfoldModel(object):
         if eras_train is None or eras_validation is None:
             raise IOError()
             
-        n=0
+        current_fold_num=0
 
         kf = model_selection.StratifiedKFold(n_splits=self.fold_num,random_state=69,shuffle=True)
         for train_index, test_index in kf.split(X_train,eras_train):
             _X_train = X_train[train_index,:]
             _y_train = y_train[train_index]
-            self._fit(n,X_train=_X_train,y_train=_y_train,
+            self._fit(current_fold_num,X_train=_X_train,y_train=_y_train,
                       X_validation=X_validation,y_validation=y_validation)
-            n+=1
-            
+            current_fold_num+=1
+        
         # optimize and save weights
         pred_list = []
         for n in range(self.fold_num):
@@ -337,11 +338,12 @@ class DisentangleKfoldModel(object):
             }
             info_list.append(copy.deepcopy(info))
             print(info)
-            self.nn[current_fold_num]['SE'].save_weights(self.nn[current_fold_num]['se_weight_path'](epoch),True)
-            self.nn[current_fold_num]['ZE'].save_weights(self.nn[current_fold_num]['ze_weight_path'](epoch),True)
-            self.nn[current_fold_num]['SD'].save_weights(self.nn[current_fold_num]['sd_weight_path'](epoch),True)
-            self.nn[current_fold_num]['ZC'].save_weights(self.nn[current_fold_num]['zc_weight_path'](epoch),True)
-
+            
+            self.nn[current_fold_num]['SE'].save_weights(self.nn[current_fold_num]['se_weight_path'](epoch))
+            self.nn[current_fold_num]['ZE'].save_weights(self.nn[current_fold_num]['ze_weight_path'](epoch))
+            self.nn[current_fold_num]['SD'].save_weights(self.nn[current_fold_num]['sd_weight_path'](epoch))
+            self.nn[current_fold_num]['ZC'].save_weights(self.nn[current_fold_num]['zc_weight_path'](epoch))
+            
             with open(self.nn[current_fold_num]['history_path'], "w") as f:
                 f.write(yaml.dump(info_list))
            

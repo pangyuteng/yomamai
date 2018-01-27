@@ -20,24 +20,24 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 from models import opt
 
 model_list = [
-    #('aec',models.aec.AecModel,dict(istrain=False)),
-    #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
+    ('aec',models.aec.AecModel,dict(istrain=False)),
+    ('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
     #worse than random# ('aecgs',models.aec_gan_stack.AecAdvStackModel,dict(istrain=True)),
     #inprogress#just bad# still testing#('krauss',models.krauss.KraussModel,dict(istrain=True)),
     #('ganmore',models.ganmore.GanMoreModel,dict(istrain=True)),
     #('sktpot',models.sk_tpot.SkTPot,dict(istrain=True)),
-    #('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
-    ('disentangle_kfold',models.disentangle_kfold.DisentangleKfoldModel,dict(istrain=True)),
-    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
+    #('disentangle',models.disentangle.DisentangleModel,dict(istrain=False)),
+    ('disentangle_kfold',models.disentangle_kfold.DisentangleKfoldModel,dict(istrain=False)),
+    #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=False)),
     #('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
     #('disentangle2',models.moddisengan2.DisentangleModel,dict(istrain=True)),
     #('vae',models.vae.VaeModel,dict(istrain=True)),
     #('tsnesimple',models.tsne_simple.TsneSimple,dict(istrain=False)),
-    #('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=False)),
-    #('simple',models.simple.Simple,dict(istrain=True)),
-    #('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
+    ('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=False)),
+    #('simple',models.simple.Simple,dict(istrain=False)),
+    ('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
 ] 
 
 
@@ -115,6 +115,9 @@ def main():
     # optimize with train set
     opt_weights = opt.opt_weights(y_pred_list,y_val)
     np.save('opt_weights.pkl',opt_weights)
+    
+    for n,c in enumerate(model_list):
+        print('weight {}:{1.4f}'.format(c[0],opt_weights[n]))
     
     # prep for testing
     del X_train,y_train,X_val,y_val  # save some memory
