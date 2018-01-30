@@ -96,8 +96,8 @@ def get_upstreams():
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
-    z = unit0(f_in,8,axis=mode,drop=dropout_rate)
-    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='relu')
+    z = unit0(f_in,32,axis=mode,drop=dropout_rate)
+    z = unit1(z,32,axis=mode,drop=dropout_rate,activation='relu')
         
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
@@ -237,7 +237,7 @@ class DisentangleKfoldModel(object):
         sd_opt = optimizers.Nadam(lr=0.00001)
         self.nn[current_fold_num]['SD'].compile(loss='mse',optimizer=sd_opt)
         
-        zc_opt = SGD(lr=0.0001)
+        zc_opt = optimizers.Nadam(lr=0.00001)
         self.nn[current_fold_num]['ZC'].compile(loss='binary_crossentropy',optimizer=zc_opt)
         
         self.nn[current_fold_num]['SE'].trainable = True

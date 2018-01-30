@@ -225,7 +225,7 @@ class DisentangleModel(object):
                 monitor='val_loss', mode='min',
                         min_delta=0, patience=10)
         early_stop.on_train_begin()                
-        early_stop.model = self.ZC
+        early_stop.model = self.ZC# after about 10 epoch swich to lr of 0.0001 below        
 
         
         epoch_num = 2000

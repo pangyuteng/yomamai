@@ -1,14 +1,14 @@
-import numpy as np
-from sklearn import metrics
-import yaml
 
-import sys,os
-
-from tqdm import tqdm
+import copy
 import os,sys
 import datetime
-import numpy as np
+import glob
+import argparse
 
+import yaml
+
+from tqdm import tqdm
+import numpy as np
 import scipy
 import pandas as pd
 import sklearn
@@ -31,9 +31,6 @@ from keras import callbacks
 from keras.layers.advanced_activations import LeakyReLU
 from keras import regularizers
 from keras.layers import PReLU
-
-import glob
-import argparse
 
 import tensorflow as tf
 sess = tf.InteractiveSession()
@@ -93,8 +90,8 @@ def get_upstreams():
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
-    z = unit0(f_in,8,axis=mode,drop=dropout_rate)
-    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='relu')
+    z = unit0(f_in,32,axis=mode,drop=dropout_rate)
+    z = unit1(z,32,axis=mode,drop=dropout_rate,activation='relu')
         
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
@@ -189,21 +186,16 @@ class DisentangleModel(object):
     def fit(self,X_train=None,y_train=None,X_validation=None,y_validation=None,X_test=None,**kwargs):
         if X_validation is None or y_validation is None:
             raise IOError()
-        '''
-        # at lr of 0.0001 for sd and 0.001 for zc
-        # mse for sd was 0.726,0.0.0419 at epochs 0 and 4
-        # logloss for zc was 0.722,0.0.693 at epochs 0 and 4        
-        '''
+            
         
-        
-        #sd_opt = Adam(lr=0.000001)
         sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
-        
-        #zc_opt = optimizers.Nadam(lr=0.0001)# very noisy
-        zc_opt = SGD(lr=0.0001) # after about 10 epoch swich to lr of 0.0001 below        
+
+        zc_opt = optimizers.Nadam(lr=0.00001)# very noisy
+        #zc_opt = SGD(lr=0.0001) # after about 10 epoch swich to lr of 0.0001 below        
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
 
+        
         self.SE.trainable = True
         
         info_list = []
@@ -213,8 +205,15 @@ class DisentangleModel(object):
             with open(self.history_path,"r") as f:
                 old_info_list = yaml.load(f.read())
 
+
+        reduce_lr_sd = callbacks.ReduceLROnPlateau(
+                        monitor='sd_val_loss', factor=0.2,
+                        patience=5, mode='min')
+        reduce_lr_sd.on_train_begin()                
+        reduce_lr_sd.model = self.SD
+
         reduce_lr = callbacks.ReduceLROnPlateau(
-                        monitor='val_loss', factor=0.1,
+                        monitor='val_loss', factor=0.2,
                         patience=5, mode='min')
         reduce_lr.on_train_begin()                
         reduce_lr.model = self.ZC
@@ -255,16 +254,32 @@ class DisentangleModel(object):
                 print('skipping epoch',len(info_list))
                 continue
 
-            for bX_train,by_train in chunkify(X_train,y_train,batch_size):
-                           
-                sd_loss = self.SD.train_on_batch(bX_train,bX_train)
-                sd_loss_list.append(sd_loss)
-                
-                self.SE.trainable = False
-                for _ in range(3):
-                    zc_loss = self.ZC.train_on_batch(bX_train,by_train)
-                    zc_loss_list.append(zc_loss)
-                self.SE.trainable = True
+            for _bX_train,_by_train in chunkify(X_train,y_train,batch_size):
+                               
+                # train by class 
+                for myclass in [0,1]:
+                    
+                    inds = np.where(_by_train==myclass)
+                    
+                    if len(inds) == 0:
+                        continue
+                        
+                    bX_train = _bX_train[inds,:].squeeze()
+                    by_train = _by_train[inds].squeeze()
+                    
+                    sd_loss = self.SD.train_on_batch(bX_train,bX_train)
+                    sd_loss_list.append(sd_loss)
+                    
+                    self.ZC.trainable = False
+                    notmyclass = 1 - by_train
+                    _zc_loss = self.ZC.train_on_batch(bX_train,notmyclass)
+                    self.ZC.trainable = True
+                    
+                    self.SE.trainable = False
+                    for _ in range(3):
+                        zc_loss = self.ZC.train_on_batch(bX_train,by_train)
+                        zc_loss_list.append(zc_loss)
+                    self.SE.trainable = True
                  
                 
             predZ = self.ZC.predict(X_validation).squeeze()
@@ -279,7 +294,7 @@ class DisentangleModel(object):
                 'val_loss': float(z_val_loss),
                 'sd_val_loss': float(s_val_loss),
             }
-            info_list.append(info)
+            info_list.append(copy.deepcopy(info))
             print(info)
             self.SE.save_weights(self.se_weight_path(epoch),True)
             self.ZE.save_weights(self.ze_weight_path(epoch),True)
@@ -288,7 +303,8 @@ class DisentangleModel(object):
             
             with open(self.history_path, "w") as f:
                 f.write(yaml.dump(info_list))
-            
+           
+            reduce_lr_sd.on_epoch_end(epoch,logs=info)
             reduce_lr.on_epoch_end(epoch,logs=info)
             early_stop.on_epoch_end(epoch,logs=info)
             

@@ -99,8 +99,8 @@ def get_upstreams():
     e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
-    z = unit0(f_in,8,axis=mode,drop=dropout_rate)
-    z = unit1(z,8,axis=mode,drop=dropout_rate,activation='relu')
+    z = unit0(f_in,32,axis=mode,drop=dropout_rate)
+    z = unit1(z,32,axis=mode,drop=dropout_rate,activation='relu')
         
     se = Model(inputs=f_in, outputs=e)    
     ze = Model(inputs=f_in, outputs=z)
@@ -214,20 +214,22 @@ class DisentangleGanModel(object):
         #if y_validation is not None:
         #    y_validation = np_utils.to_categorical(y_validation)
 
-        #sd_opt = optimizers.Nadam(lr=0.00001)
-        sd_opt = SGD(lr=0.0001)
+        
+        #sd_opt = SGD(lr=0.0001)
+        sd_opt = optimizers.Nadam(lr=0.00001)
         self.SD.compile(loss='mse',optimizer=sd_opt)
         
-        #zc_opt = optimizers.Nadam(lr=0.0001) #too noisy
-        zc_opt = SGD(lr=0.001)
+        #zc_opt = SGD(lr=0.001)
+        zc_opt = optimizers.Nadam(lr=0.00001)
         self.ZC.compile(loss='binary_crossentropy',optimizer=zc_opt)
-
-        #ad_opt = optimizers.Nadam(lr=0.00001)
-        ad_opt = SGD(lr=0.0001)
+        
+        #ad_opt = SGD(lr=0.0001)
+        ad_opt = optimizers.Nadam(lr=0.00001)
         self.AD.compile(loss='binary_crossentropy',optimizer=ad_opt)
 
-        #ga_opt = optimizers.Nadam(lr=0.000001)
-        ga_opt = SGD(lr=0.0001)
+        
+        #ga_opt = SGD(lr=0.0001)
+        ga_opt = optimizers.Nadam(lr=0.00001)
         self.GA.compile(loss='binary_crossentropy',optimizer=ga_opt)
         
         reduce_lr = callbacks.ReduceLROnPlateau(
