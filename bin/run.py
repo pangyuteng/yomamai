@@ -42,7 +42,8 @@ model_list = [
     #('res',models.res.Res,dict(istrain=True)),
     #('highway',models.highway.HighwayModel,dict(istrain=True)),
     #('highway2',models.highway2.HighwayModel,dict(istrain=True)),
-    ('highway2k',models.highway_kfold.HighwayModel,dict(istrain=True)),
+    ('highwaykfold',models.highway_kfold.HighwayModel,dict(istrain=False)),
+    ('highway2kfold',models.highway2_kfold.HighwayModel,dict(istrain=False)),
     
 ] 
 
