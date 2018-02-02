@@ -31,13 +31,17 @@ model_list = [
 #    ('disentangle',models.disentangle.DisentangleModel,dict(istrain=True)),
     #('disentangle_kfold',models.disentangle_kfold.DisentangleKfoldModel,dict(istrain=False)),
     #('disentanglegan',models.disentanglegan.DisentangleGanModel,dict(istrain=True)),
-    ('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
-    #('disentangle2',models.moddisengan2.DisentangleModel,dict(istrain=True)),
+    #('mdg',models.moddisengan.DisentangleModel,dict(istrain=True)),
+    #('mdg2',models.moddisengan2.DisentangleModel,dict(istrain=True)),
+    #('mdg3',models.moddisengan3.DisentangleModel,dict(istrain=True)),#no disentangle
     #('vae',models.vae.VaeModel,dict(istrain=True)),
     #('tsnesimple',models.tsne_simple.TsneSimple,dict(istrain=False)),
     #('tsnesimplekfold',models.tsne_simplekfold.TsneSimpleKfold,dict(istrain=False)),
     #('simple',models.simple.Simple,dict(istrain=False)),
-#    ('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
+    #('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
+    #('res',models.res.Res,dict(istrain=True)),
+    ('highway',models.highway.HighwayModel,dict(istrain=True)),
+    #('highway2',models.highway2.HighwayModel,dict(istrain=True)),
 ] 
 
 

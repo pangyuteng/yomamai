@@ -11,6 +11,8 @@ https://github.com/jsilter/parametric_tsne
 https://www.kaggle.com/timevans/rf-xgboost-keras
 https://www.kaggle.com/hsperr/finding-ensamble-weights
 
+https://blog.slavv.com/37-reasons-why-your-neural-network-is-not-working-4020854bd607
+
 CUDA_VISIBLE_DEVICES='1' 
 CUDA_VISIBLE_DEVICES='1' jupyter notebook
 tensorboard --logdir models/moddisentablegan_file/log

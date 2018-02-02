@@ -13,8 +13,12 @@ from . import disentanglegan
 from . import vae
 from . import moddisengan
 from . import moddisengan2
+from . import moddisengan3
 from . import tsne
 from . import tsne_simple
 from . import simple
+from . import res
+from . import highway
+from . import highway2
 from . import simplekfold
 from . import tsne_simplekfold

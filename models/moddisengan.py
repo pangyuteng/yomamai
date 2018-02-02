@@ -236,18 +236,18 @@ def get_upstreams():
     f_in = Input(shape=(input_shape,))
     
     # specific encoder
-    e = unit0(f_in,32,axis=mode,drop=dropout_rate)
-    e = unit0(e,16,axis=mode,drop=dropout_rate)
-    e = unit1(e,8,axis=mode,drop=dropout_rate,activation='relu')
+    e = unit0(f_in,8,axis=mode,drop=dropout_rate)
+    e = unit0(e,8,axis=mode,drop=dropout_rate)
+    e = unit1(e,4,axis=mode,drop=dropout_rate,activation='relu')
 
     #unspecific encoder
     z = unit0(f_in,8,axis=mode,drop=dropout_rate)
     z = unit1(z,8,axis=mode,drop=dropout_rate,activation='relu')
     # act = 'relu'
-    # z = unit0(f_in,32,axis=mode,drop=dropout_rate)
+    # z = unit0(f_in,8,axis=mode,drop=dropout_rate)
     # z=Highway(activation=act)(z)
     # z=Dropout(dropout_rate)(z)
-    # z = unit0(z,16,axis=mode,drop=dropout_rate)
+    # z = unit0(z,8,axis=mode,drop=dropout_rate)
     # z=Highway(activation=act)(z)
     # z=Dropout(dropout_rate)(z)
     # z = unit1(z,8,axis=mode,drop=dropout_rate,activation='relu')
@@ -269,8 +269,8 @@ def get_downstreams(SE,ZE):
     m = Concatenate(axis=-1)([se,ze])
     
     # specific discriminator    
-    d = unit0(m,32,axis=mode,drop=dropout_rate)
-    d = unit0(d,16,axis=mode,drop=dropout_rate)
+    d = unit0(m,8,axis=mode,drop=dropout_rate)
+    d = unit0(d,8,axis=mode,drop=dropout_rate)
     d = unit1(d,8,axis=mode,drop=dropout_rate,activation='sigmoid')
     SD = Model(inputs=I,outputs=d)
     
