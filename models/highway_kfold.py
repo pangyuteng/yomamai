@@ -232,10 +232,10 @@ def get_highway():
     f_in = Input(shape=(input_shape,))
     
     act = 'relu'
-    z = unit0(f_in,32,axis=mode,drop=dropout_rate)
+    z = unit0(f_in,16,axis=mode,drop=dropout_rate)
     z=Highway(activation=act)(z)
     z=Dropout(dropout_rate)(z)
-    z = unit0(z,16,axis=mode,drop=dropout_rate)
+    z = unit0(z,8,axis=mode,drop=dropout_rate)
     z=Highway(activation=act)(z)
     z=Dropout(dropout_rate)(z)
     z = unit1(z,1,axis=mode,drop=dropout_rate,activation='relu')
@@ -247,7 +247,7 @@ def get_highway():
 np.random.seed(69)
 
 
-FDNAME = 'highway2_file'
+FDNAME = 'highwaykfold_file'
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -257,63 +257,112 @@ class HighwayModel(object):
         self.fdname = fdname
         self.this_dir = this_dir
         
-        self.snn_weight_file = os.path.join(THIS_DIR,self.fdname,'nn_{epoch:03d}.hdf5')
-        self.snn_csv = os.path.join(THIS_DIR,self.fdname,'nn.csv')
-        self.snn = get_highway()
+        self.w_file = os.path.join(this_dir,fdname,'weights.npy')
+        self.fold_num = 10
+        self._init_nn()
         
-    def _load_snn(self):
-        _results=pd.read_csv(self.snn_csv)
-        _epoch=np.argmin(_results['val_loss'])
-        self.snn.load_weights(self.snn_weight_file.format(epoch=_epoch))
+    def _init_nn(self):
+        self.nn={}
+        for n in range(self.fold_num):
+            nn_weight_file = os.path.join(THIS_DIR,self.fdname,str(n),'nn_{epoch:03d}.hdf5')
+            nn_csv = os.path.join(THIS_DIR,self.fdname,str(n),'nn.csv')
+            self.nn[n]={
+                'nn_weight_file':nn_weight_file,
+                'nn_csv':nn_csv,
+                'nn':get_highway(),
+            }
+        
+    def _load_nn(self):
+        for n in range(self.fold_num):
+            nn_weight_file = self.nn[n]['nn_weight_file']
+            nn_csv = self.nn[n]['nn_csv']
+            _results=pd.read_csv(nn_csv)
+            _epoch=np.argmin(_results['val_loss'])+1
+            self.nn[n]['nn'].load_weights(nn_weight_file.format(epoch=_epoch))
         
     def load(self):
-        self._load_snn()
+        self._load_nn()
+        self.w=np.load(self.w_file)
         self.is_trained = True
 
     def fit(self,X_train=None,y_train=None,
-            X_validation=None,y_validation=None,X_test=None,**kwargs):
+            X_validation=None,y_validation=None,
+            eras_train=None,eras_validation=None,**kwargs):
+        
         if X_validation is None or y_validation is None:
             raise IOError()
             
-        if os.path.exists(os.path.dirname(self.snn_csv)) is False:
-            os.makedirs(os.path.dirname(self.snn_csv))
+        if eras_train is None or eras_validation is None:
+            raise IOError()
         
-        #y_train = np_utils.to_categorical(y_train)
-        #y_validation = np_utils.to_categorical(y_validation)
+        n=0
+        kf = model_selection.StratifiedKFold(n_splits=self.fold_num,random_state=69,shuffle=True)
+        for train_index, test_index in kf.split(X_train,eras_train):
+            _X_train = X_train[train_index,:]
+            _y_train = y_train[train_index]
+            self._fit(n,_X_train,_y_train,X_validation,y_validation)
+            n+=1
+            
         
+        # optimize and save weights
+        pred_list = []
+        for n in range(self.fold_num):
+            y_pred=self.nn[n]['nn'].predict(X_validation)
+            pred_list.append(y_pred.squeeze())
+    
+        self.w = opt.opt_weights(pred_list,y_validation)
+        np.save(self.w_file, self.w) 
+        
+        self.load()
+        
+    def _fit(self,_n,X_train,y_train,X_validation,y_validation):
+            
+        nn_csv = self.nn[_n]['nn_csv']
+        nn_weight_file = self.nn[_n]['nn_weight_file']
+        
+        if os.path.exists(os.path.dirname(nn_csv)) is False:
+            os.makedirs(os.path.dirname(nn_csv))
+                
         train_inds = np.random.permutation(len(y_train))
         X_train = X_train[train_inds,:]
         y_train = y_train[train_inds]
         
         snn_callbacks = [
-            PlotLoss(self.snn_csv),
+            PlotLoss(nn_csv),
             callbacks.ReduceLROnPlateau(monitor='val_loss',
                     factor=0.2,patience=5, mode='min'),
             callbacks.EarlyStopping(monitor='val_loss', patience=10),
-            callbacks.ModelCheckpoint(self.snn_weight_file),
+            callbacks.ModelCheckpoint(nn_weight_file),
         ]
         
         batch_size=64
+        
         opt = optimizers.Nadam(lr=0.0001)
-        self.snn.compile(loss='binary_crossentropy',optimizer=opt)
-        self.snn.fit(X_train,y_train,
+        self.nn[_n]['nn'].compile(loss='binary_crossentropy',optimizer=opt)
+        self.nn[_n]['nn'].fit(X_train,y_train,
                      batch_size=batch_size,epochs=200,
                      validation_data=(X_validation,y_validation),
                      callbacks=snn_callbacks,
                     )
         
-        self.load()
 
     def predict(self,X,y_true=None):
         if self.is_trained is False:
             self.load()
-        
-        y_pred = self.snn.predict(X)
 
+        pred_list = []
+        for n in range(self.fold_num):
+            y_pred=self.nn[n]['nn'].predict(X)
+            pred_list.append(y_pred.squeeze())
+        
+        pred_arr = np.array(pred_list)
+        y_pred = np.dot(self.w,pred_arr)
+        print(self.w,pred_arr.shape,y_pred.shape)
         logloss = None
         if y_true is not None:
             logloss = metrics.log_loss(y_true,y_pred)
             print('logloss %r' % logloss)
 
         return y_pred, logloss
+
 

@@ -40,8 +40,10 @@ model_list = [
     #('simple',models.simple.Simple,dict(istrain=False)),
     #('simplekfold',models.simplekfold.SimpleKfold,dict(istrain=False)),
     #('res',models.res.Res,dict(istrain=True)),
-    ('highway',models.highway.HighwayModel,dict(istrain=True)),
+    #('highway',models.highway.HighwayModel,dict(istrain=True)),
     #('highway2',models.highway2.HighwayModel,dict(istrain=True)),
+    ('highway2k',models.highway_kfold.HighwayModel,dict(istrain=True)),
+    
 ] 
 
 

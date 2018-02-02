@@ -20,5 +20,7 @@ from . import simple
 from . import res
 from . import highway
 from . import highway2
+from . import highway_kfold
+from . import highway2_kfold
 from . import simplekfold
 from . import tsne_simplekfold
