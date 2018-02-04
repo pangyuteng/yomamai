@@ -18,6 +18,10 @@ CUDA_VISIBLE_DEVICES='1' jupyter notebook
 tensorboard --logdir models/moddisentablegan_file/log
 '''
 
+https://numer.ai/leaderboard
+https://forum.numer.ai
+https://community.numer.ai/
+
 * create ethereum wallet (https://medium.com/tokenclub/how-to-create-your-own-ethereum-wallet-using-myetherwallet-fcb494e1a053 or https://github.com/ethereum/go-ethereum/wiki/Managing-your-accounts).
 * install and create MetaMask account in browser (https://metamask.io/).
 * import eth wallet using privatekey or keystore to MetaMask.
