@@ -20,7 +20,7 @@ from data_utils import get_data_era_balanced,data_files,get_data, write_to_csv
 from models import opt
 
 model_list = [
-    #('aec',models.aec.AecModel,dict(istrain=False),
+    ('aec',models.aec.AecModel,dict(istrain=False)),
     #('aecgan',models.aec_gan.AecAdvModel,dict(istrain=False)),
     #('xg',models.xg.XgModel,dict(istrain=False)),
     #('aecganxg',models.aec_gan_xg.AecGanXgModel,dict(istrain=True)),# depends on model from AecAdvModel
@@ -42,8 +42,8 @@ model_list = [
     #('res',models.res.Res,dict(istrain=False)),
     #('highway',models.highway.HighwayModel,dict(istrain=True)),
     #('highway2',models.highway2.HighwayModel,dict(istrain=True)),
-    ('highwaykfold',models.highway_kfold.HighwayModel,dict(istrain=False)),
-    ('highway2kfold',models.highway2_kfold.HighwayModel,dict(istrain=False)),
+    #('highwaykfold',models.highway_kfold.HighwayModel,dict(istrain=False)),
+    #('highway2kfold',models.highway2_kfold.HighwayModel,dict(istrain=False)),
 ]
 
 
